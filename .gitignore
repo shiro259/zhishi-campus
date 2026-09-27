@@ -1,0 +1,4 @@
+﻿# 临时文件
+.tmp/
+.edge-tmp/
+*.log
