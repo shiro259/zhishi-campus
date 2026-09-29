@@ -1,0 +1,94 @@
+{
+  "bsonType": "object",
+  "required": ["name", "price", "canteen", "window"],
+  "permission": {
+    "read": true,
+    "create": "auth.role == 'admin'",
+    "update": "auth.role == 'admin'",
+    "delete": "auth.role == 'admin'"
+  },
+  "properties": {
+    "_id": {
+      "description": "菜品ID"
+    },
+    "name": {
+      "bsonType": "string",
+      "description": "菜品名称",
+      "title": "菜品名称"
+    },
+    "price": {
+      "bsonType": "double",
+      "description": "价格（元）",
+      "title": "价格"
+    },
+    "canteen": {
+      "bsonType": "string",
+      "description": "所属食堂",
+      "title": "食堂"
+    },
+    "window": {
+      "bsonType": "string",
+      "description": "所属窗口",
+      "title": "窗口"
+    },
+    "category": {
+      "bsonType": "string",
+      "description": "分类标签",
+      "title": "分类",
+      "defaultValue": "其他"
+    },
+    "tags": {
+      "bsonType": "array",
+      "description": "口味标签",
+      "title": "口味标签",
+      "defaultValue": []
+    },
+    "image": {
+      "bsonType": "string",
+      "description": "菜品图片URL",
+      "title": "图片"
+    },
+    "description": {
+      "bsonType": "string",
+      "description": "菜品描述",
+      "title": "描述"
+    },
+    "rating": {
+      "bsonType": "double",
+      "description": "综合评分",
+      "title": "评分",
+      "defaultValue": 0
+    },
+    "review_count": {
+      "bsonType": "int",
+      "description": "评价数量",
+      "title": "评价数",
+      "defaultValue": 0
+    },
+    "recommend_count": {
+      "bsonType": "int",
+      "description": "推荐次数",
+      "title": "推荐次数",
+      "defaultValue": 0
+    },
+    "status": {
+      "bsonType": "int",
+      "description": "上架状态 1上架 0下架",
+      "title": "状态",
+      "defaultValue": 1
+    },
+    "is_new": {
+      "bsonType": "bool",
+      "description": "是否新品",
+      "title": "新品",
+      "defaultValue": false
+    },
+    "create_date": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "ai-recommend",
+  "version": "1.0.0",
+  "description": "AI 菜品推荐（直连大模型）",
+  "main": "index.js",
+  "dependencies": {}
+}

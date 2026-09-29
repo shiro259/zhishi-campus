@@ -1,0 +1,156 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "食遇校园",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/recommend/recommend",
+      "style": {
+        "navigationBarTitleText": "AI 智能推荐",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/dish-list/dish-list",
+      "style": {
+        "navigationBarTitleText": "菜品列表",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/dish/dish",
+      "style": {
+        "navigationBarTitleText": "菜品详情",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/review/review",
+      "style": {
+        "navigationBarTitleText": "发布评价",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/user",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/edit",
+      "style": {
+        "navigationBarTitleText": "编辑资料",
+        "navigationBarBackgroundColor": "#FF6B35",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/index",
+      "style": {
+        "navigationBarTitleText": "管理后台",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/dashboard",
+      "style": {
+        "navigationBarTitleText": "数据看板",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/dishes",
+      "style": {
+        "navigationBarTitleText": "菜品管理",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/dish-edit",
+      "style": {
+        "navigationBarTitleText": "编辑菜品",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/reviews",
+      "style": {
+        "navigationBarTitleText": "评价审核",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/users",
+      "style": {
+        "navigationBarTitleText": "用户管理",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#FF6B35",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/recommend/recommend",
+        "iconPath": "static/tabbar/ai.png",
+        "selectedIconPath": "static/tabbar/ai-active.png",
+        "text": "AI推荐"
+      },
+      {
+        "pagePath": "pages/dish-list/dish-list",
+        "iconPath": "static/tabbar/dish.png",
+        "selectedIconPath": "static/tabbar/dish-active.png",
+        "text": "菜品"
+      },
+      {
+        "pagePath": "pages/user/user",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/user-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "食遇校园",
+    "navigationBarBackgroundColor": "#FF6B35",
+    "backgroundColor": "#F5F5F5"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "bsonType": "object",
+  "required": ["dish_id", "user_id", "rating"],
+  "permission": {
+    "read": true,
+    "create": "auth != null",
+    "update": "auth.uid == doc.user_id || auth.role == 'admin'",
+    "delete": "auth.uid == doc.user_id || auth.role == 'admin'"
+  },
+  "properties": {
+    "_id": {
+      "description": "评价ID"
+    },
+    "dish_id": {
+      "bsonType": "string",
+      "description": "关联菜品ID",
+      "foreignKey": "dishes._id"
+    },
+    "user_id": {
+      "bsonType": "string",
+      "description": "评价用户ID",
+      "foreignKey": "uni-id-users._id"
+    },
+    "rating": {
+      "bsonType": "int",
+      "description": "评分 1-5星",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "content": {
+      "bsonType": "string",
+      "description": "文字评价内容"
+    },
+    "tags": {
+      "bsonType": "array",
+      "description": "评价标签",
+      "defaultValue": []
+    },
+    "images": {
+      "bsonType": "array",
+      "description": "评价图片URL列表",
+      "defaultValue": []
+    },
+    "audit_status": {
+      "bsonType": "string",
+      "description": "审核状态 pending/approved/rejected",
+      "defaultValue": "pending"
+    },
+    "is_malicious": {
+      "bsonType": "int",
+      "description": "是否恶意 0否 1是",
+      "defaultValue": 0
+    },
+    "likes": {
+      "bsonType": "int",
+      "description": "点赞数",
+      "defaultValue": 0
+    },
+    "create_date": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+}
