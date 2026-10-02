@@ -1,175 +1,387 @@
 <template>
-  <view class="users-page">
-    <view class="toolbar">
-      <input class="search" v-model="keyword" placeholder="搜索昵称/学号" @confirm="load" />
-    </view>
-
-    <view class="user-list">
-      <view class="user-item" v-for="u in list" :key="u.id">
-        <image class="avatar" :src="u.avatar || defaultAvatar" mode="aspectFill" />
-        <view class="info">
-          <view class="name-row">
-            <text class="name">{{ u.nickname }}</text>
-            <text class="role" v-if="u.role === 'admin'">管理员</text>
-            <text class="status" :class="u.status">{{ u.status === 'banned' ? '已封禁' : '正常' }}</text>
-          </view>
-          <text class="sid" v-if="u.student_id">学号：{{ u.student_id }}</text>
-          <view class="prefs" v-if="u.taste_pref && u.taste_pref.length">
-            <text class="pref" v-for="t in u.taste_pref" :key="t">{{ t }}</text>
-          </view>
-        </view>
-        <view class="action" @click="ban(u)">
-          {{ u.status === 'banned' ? '解封' : '封禁' }}
-        </view>
+  <view class="data-page">
+    <!-- 概览 -->
+    <view class="ov-grid">
+      <view class="ov-card ov-total">
+        <text class="ov-num">{{ stats.total }}</text>
+        <text class="ov-label">评价总数</text>
+      </view>
+      <view class="ov-card ov-pending">
+        <text class="ov-num">{{ stats.pending }}</text>
+        <text class="ov-label">待审核</text>
+      </view>
+      <view class="ov-card ov-pass">
+        <text class="ov-num">{{ stats.passed }}</text>
+        <text class="ov-label">已通过</text>
+      </view>
+      <view class="ov-card ov-reject">
+        <text class="ov-num">{{ stats.rejected }}</text>
+        <text class="ov-label">已拒绝</text>
       </view>
     </view>
 
-    <view class="empty" v-if="list.length === 0">暂无用户</view>
+    <!-- 说明 -->
+    <view class="tip-card">
+      <text class="tip-icon">ℹ️</text>
+      <text class="tip-text">
+        同学身份保存在各自手机本地，后台不集中存储用户账号。此处汇总全部菜品评价数据，
+        用于审核与运营分析；评价通过审核后才会在菜品详情页公开展示。
+      </text>
+    </view>
+
+    <!-- 筛选 -->
+    <view class="filter-bar">
+      <view
+        class="filter-item"
+        v-for="f in filters"
+        :key="f.value"
+        :class="{ active: status === f.value }"
+        @click="switchStatus(f.value)"
+      >{{ f.label }}</view>
+    </view>
+
+    <!-- 列表 -->
+    <view class="loading" v-if="loading">加载中…</view>
+
+    <view class="list" v-else>
+      <view class="item" v-for="r in list" :key="r._id">
+        <view class="item-head">
+          <text class="avatar">😋</text>
+          <view class="head-main">
+            <text class="nickname">{{ r.nickname || '匿名同学' }}</text>
+            <text class="dish-name">{{ r.dish_name || r.dish_id }}</text>
+          </view>
+          <text class="status-tag" :class="'status-' + (r.status || 0)">
+            {{ statusText(r.status) }}
+          </text>
+        </view>
+        <view class="stars-row">
+          <text class="stars">{{ renderStars(r.rating || 0) }}</text>
+          <text class="time">{{ formatTime(r.create_date) }}</text>
+        </view>
+        <text class="content">{{ r.content }}</text>
+      </view>
+
+      <view class="empty" v-if="!list.length">
+        <text class="empty-emoji">📭</text>
+        <text class="empty-text">当前筛选下还没有评价数据</text>
+      </view>
+
+      <view class="load-more" v-if="hasMore && list.length" @click="loadMore">
+        {{ loadingMore ? '加载中…' : '加载更多' }}
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
+/**
+ * 评价数据管理页
+ *
+ * 原设计为「后端用户管理」，迁移到 uniCloud 架构后不再集中存储用户账号，
+ * 因此改为汇总展示评价数据（含各审核状态分布），供管理端审核与运营分析。
+ */
 import { ref, onMounted } from 'vue'
-import { adminApi } from '@/api/index.js'
+import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { reviewApi } from '@/api/index.js'
+import { formatTime, renderStars, getUserInfo } from '@/common/utils.js'
 
-const defaultAvatar = '/static/userImg/user.png'
+const filters = [
+  { label: '全部', value: '' },
+  { label: '待审核', value: 0 },
+  { label: '已通过', value: 1 },
+  { label: '已拒绝', value: 2 }
+]
+
+const loading = ref(false)
+const loadingMore = ref(false)
 const list = ref([])
-const keyword = ref('')
+const page = ref(1)
+const hasMore = ref(false)
+const status = ref('')
+const stats = ref({ total: 0, pending: 0, passed: 0, rejected: 0 })
+/** 一次拉全量后缓存在内存，切换筛选无需重新请求 */
+const cached = ref([])
 
-onMounted(() => load())
+onMounted(() => {
+  if (getUserInfo() && getUserInfo().role !== 'admin') {
+    uni.showToast({ title: '需要管理员权限', icon: 'none' })
+    setTimeout(() => uni.navigateBack(), 1200)
+    return
+  }
+  load()
+})
 
 async function load() {
+  loading.value = true
+  page.value = 1
   try {
-    const data = await adminApi.userList({ keyword: keyword.value || undefined, page_size: 100 })
-    list.value = data.list || []
-  } catch (e) {}
+    // 管理端可以读到全部状态的数据，因此这里分别取待审核与公开评价后合并
+    const [pending, passed] = await Promise.all([
+      reviewApi.pending({ page: 1, pageSize: 100 }),
+      reviewApi.list({ page: 1, pageSize: 100 })
+    ])
+    const all = [...(pending.list || []), ...(passed.list || [])]
+    // 去重（pending 里可能也包含在公开结果中的记录）
+    const seen = {}
+    const merged = all.filter((r) => {
+      const key = r._id
+      if (seen[key]) return false
+      seen[key] = 1
+      return true
+    })
+    merged.sort((a, b) => (b.create_date || 0) - (a.create_date || 0))
+
+    stats.value = buildStats(merged)
+    applyFilter(merged)
+  } catch (e) {
+    uni.showToast({ title: '评价数据加载失败', icon: 'none' })
+    list.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
-async function ban(u) {
-  try {
-    await adminApi.banUser(u.id)
-    uni.showToast({ title: u.status === 'banned' ? '已解封' : '已封禁', icon: 'success' })
-    load()
-  } catch (e) {}
+/** 用全量数据算出四类统计 */
+function buildStats(all) {
+  return {
+    total: all.length,
+    pending: all.filter((r) => (r.status || 0) === 0).length,
+    passed: all.filter((r) => r.status === 1).length,
+    rejected: all.filter((r) => r.status === 2).length
+  }
 }
+
+/** 按当前筛选条件切分（数据量不大，纯前端过滤足够） */
+function applyFilter(all) {
+  // 不传参数时沿用上次的全量数据（切换筛选条件时调用）
+  const src = all || cached.value
+  cached.value = src
+  const filtered = status.value === '' ? src : src.filter((r) => (r.status || 0) === status.value)
+  list.value = filtered
+  hasMore.value = false
+}
+
+function switchStatus(v) {
+  status.value = v
+  applyFilter()
+}
+
+function loadMore() {
+  // 数据已一次性拉取，这里只在筛选结果里分批展示，避免重复请求
+  loadingMore.value = true
+  setTimeout(() => {
+    list.value = cached.value
+    hasMore.value = false
+    loadingMore.value = false
+  }, 300)
+}
+
+function statusText(s) {
+  if (s === 1) return '已通过'
+  if (s === 2) return '已拒绝'
+  return '待审核'
+}
+
+onPullDownRefresh(() => {
+  load().finally(() => uni.stopPullDownRefresh())
+})
+
+onReachBottom(() => {
+  if (hasMore.value && !loadingMore.value) loadMore()
+})
 </script>
 
 <style scoped>
-.users-page {
-  padding: 20rpx;
+.data-page {
+  padding: 24rpx;
   background: #f5f5f5;
   min-height: 100vh;
-}
-
-.toolbar {
-  margin-bottom: 20rpx;
-}
-
-.search {
-  width: 100%;
-  height: 72rpx;
-  background: #fff;
-  border-radius: 36rpx;
-  padding: 0 24rpx;
-  font-size: 28rpx;
   box-sizing: border-box;
 }
 
-.user-list {
+.ov-grid {
   display: flex;
-  flex-direction: column;
-  gap: 16rpx;
+  flex-wrap: wrap;
+  gap: 20rpx;
 }
 
-.user-item {
+.ov-card {
+  width: calc(50% - 10rpx);
+  border-radius: 20rpx;
+  padding: 32rpx 26rpx;
+  box-sizing: border-box;
+}
+
+.ov-total { background: linear-gradient(135deg, #667eea, #764ba2); }
+.ov-pending { background: linear-gradient(135deg, #ff9f45, #ff6b35); }
+.ov-pass { background: linear-gradient(135deg, #43c6ac, #2ba58c); }
+.ov-reject { background: linear-gradient(135deg, #8e8e8e, #5f5f5f); }
+
+.ov-num {
+  display: block;
+  font-size: 52rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.ov-label {
+  display: block;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 8rpx;
+}
+
+.tip-card {
+  display: flex;
+  align-items: flex-start;
+  background: #fffbe6;
+  border-radius: 16rpx;
+  padding: 20rpx 22rpx;
+  margin-top: 24rpx;
+}
+
+.tip-icon {
+  font-size: 24rpx;
+  margin-right: 10rpx;
+}
+
+.tip-text {
+  flex: 1;
+  font-size: 22rpx;
+  color: #a86b00;
+  line-height: 1.6;
+}
+
+.filter-bar {
+  display: flex;
+  margin-top: 24rpx;
+}
+
+.filter-item {
+  padding: 12rpx 30rpx;
+  background: #fff;
+  border-radius: 30rpx;
+  font-size: 25rpx;
+  color: #666;
+  margin-right: 16rpx;
+}
+
+.filter-item.active {
+  background: #333;
+  color: #fff;
+}
+
+.loading {
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+  padding: 80rpx 0;
+}
+
+.list {
+  margin-top: 24rpx;
+}
+
+.item {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 26rpx;
+  margin-bottom: 20rpx;
+}
+
+.item-head {
   display: flex;
   align-items: center;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 20rpx;
 }
 
 .avatar {
-  width: 80rpx;
-  height: 80rpx;
+  font-size: 44rpx;
+  width: 64rpx;
+  height: 64rpx;
   border-radius: 50%;
-  margin-right: 20rpx;
-  background: #f0f0f0;
-}
-
-.info {
-  flex: 1;
-}
-
-.name-row {
+  background: #fff3ed;
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  justify-content: center;
+  margin-right: 18rpx;
 }
 
-.name {
-  font-size: 28rpx;
+.head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.nickname {
+  display: block;
+  font-size: 27rpx;
   color: #333;
   font-weight: 500;
 }
 
-.role {
-  font-size: 20rpx;
-  color: #fff;
-  background: #FF6B35;
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
-}
-
-.status {
-  font-size: 20rpx;
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
-}
-
-.status.active {
-  color: #4caf50;
-  background: #e8f5e9;
-}
-
-.status.banned {
-  color: #f44336;
-  background: #ffebee;
-}
-
-.sid {
+.dish-name {
+  display: block;
   font-size: 22rpx;
   color: #999;
-  margin-top: 6rpx;
-  display: block;
+  margin-top: 4rpx;
 }
 
-.prefs {
-  margin-top: 6rpx;
+.status-tag {
+  font-size: 21rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 18rpx;
+}
+
+.status-0 { background: #fff3e0; color: #e6871a; }
+.status-1 { background: #e8f8f0; color: #2ba58c; }
+.status-2 { background: #fdecec; color: #e64340; }
+
+.stars-row {
   display: flex;
-  gap: 6rpx;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
 }
 
-.pref {
-  font-size: 20rpx;
-  color: #FF6B35;
-  background: #FFF0EB;
-  padding: 2rpx 8rpx;
-  border-radius: 4rpx;
-}
-
-.action {
+.stars {
   font-size: 24rpx;
-  color: #fff;
-  background: #ff4d4f;
-  padding: 10rpx 20rpx;
-  border-radius: 8rpx;
+  color: #FF9800;
+}
+
+.time {
+  font-size: 21rpx;
+  color: #bbb;
+}
+
+.content {
+  display: block;
+  font-size: 25rpx;
+  color: #555;
+  line-height: 1.6;
+  margin-top: 12rpx;
 }
 
 .empty {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 100rpx 0;
-  color: #bbb;
-  font-size: 28rpx;
+}
+
+.empty-emoji {
+  font-size: 80rpx;
+}
+
+.empty-text {
+  margin-top: 18rpx;
+  font-size: 26rpx;
+  color: #999;
+}
+
+.load-more {
+  text-align: center;
+  font-size: 26rpx;
+  color: #666;
+  padding: 26rpx 0;
 }
 </style>

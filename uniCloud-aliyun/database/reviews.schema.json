@@ -2,63 +2,77 @@
   "bsonType": "object",
   "required": ["dish_id", "user_id", "rating"],
   "permission": {
-    "read": true,
-    "create": "auth != null",
-    "update": "auth.uid == doc.user_id || auth.role == 'admin'",
-    "delete": "auth.uid == doc.user_id || auth.role == 'admin'"
+    "read": "doc.status == 1",
+    "create": false,
+    "update": false,
+    "delete": false
   },
   "properties": {
     "_id": {
-      "description": "评价ID"
+      "description": "评价唯一ID，由数据库自动生成",
+      "title": "评价ID"
     },
     "dish_id": {
       "bsonType": "string",
-      "description": "关联菜品ID",
+      "description": "被评价菜品的ID，对应 dishes 集合",
+      "title": "菜品ID",
       "foreignKey": "dishes._id"
+    },
+    "dish_name": {
+      "bsonType": "string",
+      "description": "被评价菜品名称，冗余存储便于列表直接展示",
+      "title": "菜品名称"
     },
     "user_id": {
       "bsonType": "string",
-      "description": "评价用户ID",
+      "description": "评价用户ID，对应 uni-id-users 集合",
+      "title": "用户ID",
       "foreignKey": "uni-id-users._id"
+    },
+    "nickname": {
+      "bsonType": "string",
+      "description": "评价用户昵称，冗余存储便于列表展示",
+      "title": "用户昵称"
+    },
+    "avatar": {
+      "bsonType": "string",
+      "description": "评价用户头像地址",
+      "title": "用户头像"
     },
     "rating": {
       "bsonType": "int",
-      "description": "评分 1-5星",
+      "description": "评分，1~5 星",
+      "title": "评分",
       "minimum": 1,
       "maximum": 5
     },
     "content": {
       "bsonType": "string",
-      "description": "文字评价内容"
-    },
-    "tags": {
-      "bsonType": "array",
-      "description": "评价标签",
-      "defaultValue": []
+      "description": "评价文字内容",
+      "title": "评价内容"
     },
     "images": {
       "bsonType": "array",
-      "description": "评价图片URL列表",
+      "description": "评价晒图地址列表，无图时为空数组",
+      "title": "评价图片",
       "defaultValue": []
     },
-    "audit_status": {
-      "bsonType": "string",
-      "description": "审核状态 pending/approved/rejected",
-      "defaultValue": "pending"
-    },
-    "is_malicious": {
+    "like_count": {
       "bsonType": "int",
-      "description": "是否恶意 0否 1是",
+      "description": "该评价获得的点赞数",
+      "title": "点赞数",
       "defaultValue": 0
     },
-    "likes": {
+    "status": {
       "bsonType": "int",
-      "description": "点赞数",
+      "description": "审核状态，0待审核 1已通过 2已拒绝",
+      "title": "审核状态",
       "defaultValue": 0
     },
     "create_date": {
       "bsonType": "timestamp",
-      "description": "创建时间",
+      "description": "评价创建时间，由数据库自动写入当前时间戳",
+      "title": "创建时间",
       "forceDefaultValue": {
         "$env": "now"
       }

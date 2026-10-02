@@ -1,69 +1,114 @@
 <template>
-  <view class="dish-page" v-if="dish">
-    <!-- 菜品图片 -->
-    <image class="dish-hero" :src="dish.image || defaultImg" mode="aspectFill" />
-
-    <!-- 基本信息 -->
-    <view class="info-card">
-      <view class="name-row">
-        <text class="dish-name">{{ dish.name }}</text>
-        <text class="dish-price">¥{{ dish.price }}</text>
-      </view>
-      <view class="meta-row">
-        <text class="rating">⭐ {{ dish.rating }} 分</text>
-        <text class="divider">|</text>
-        <text class="review-count">{{ dish.review_count }} 条评价</text>
-        <text class="divider">|</text>
-        <text class="rec-count">推荐 {{ dish.recommend_count }} 次</text>
-      </view>
-      <view class="loc-row">
-        <text class="loc">📍 {{ dish.canteen }} · {{ dish.window }}</text>
-      </view>
-      <view class="tag-row">
-        <text class="tag" v-for="t in dish.tags" :key="t">{{ t }}</text>
-      </view>
-      <view class="desc" v-if="dish.description">
-        {{ dish.description }}
-      </view>
+  <view class="dish-page">
+    <!-- 加载中 -->
+    <view class="state-box" v-if="loading">
+      <text class="state-icon">⏳</text>
+      <text class="state-text">加载中...</text>
     </view>
 
-    <!-- 评价按钮 -->
-    <view class="review-btn" @click="goReview">
-      <text>✍️ 我要评价</text>
+    <!-- 加载失败 / 菜品不存在 -->
+    <view class="state-box" v-else-if="error">
+      <text class="state-icon">😵</text>
+      <text class="state-text">{{ error }}</text>
+      <view class="state-btn" @click="goRecommend">回到推荐</view>
     </view>
 
-    <!-- 评价列表 -->
-    <view class="reviews-section">
-      <view class="section-title">
-        <text>真实评价 ({{ reviews.length }})</text>
+    <!-- 菜品内容 -->
+    <template v-else-if="dish">
+      <!-- 菜品大图（无图时自动回退为 emoji 展示） -->
+      <view class="hero">
+        <DishImage :dish="dish" :size="340" :radius="32" />
       </view>
 
-      <view class="review-item" v-for="r in reviews" :key="r.id">
-        <view class="review-header">
-          <image class="avatar" :src="r.user_avatar || defaultAvatar" mode="aspectFill" />
-          <view class="review-user">
-            <text class="nickname">{{ r.user_nickname || '匿名用户' }}</text>
-            <view class="stars">
-              <text v-for="n in 5" :key="n" :class="{ on: n <= r.rating }">★</text>
-            </view>
+      <!-- 基本信息 -->
+      <view class="info-card">
+        <view class="name-row">
+          <text class="dish-name">{{ dish.name }}</text>
+          <text class="dish-price">{{ money(dish.price) }}</text>
+        </view>
+
+        <view class="meta-row">
+          <text class="rating">⭐ {{ ratingText(dish.rating) }} 分</text>
+          <text class="divider">|</text>
+          <text class="loc">📍 {{ dish.canteen || '未知食堂' }} · {{ dish.window || '未知窗口' }}</text>
+        </view>
+
+        <view class="tag-row" v-if="dish.tags && dish.tags.length">
+          <text class="tag" v-for="(t, i) in dish.tags" :key="i">{{ t }}</text>
+        </view>
+        <view class="tag-row" v-else>
+          <text class="tag-empty">暂无口味标签</text>
+        </view>
+
+        <!-- 数据统计 -->
+        <view class="stats-row">
+          <view class="stat-item">
+            <text class="stat-num">{{ count(dish.recommend_count) }}</text>
+            <text class="stat-label">推荐次数</text>
           </view>
-          <text class="review-time">{{ formatTime(r.created_at) }}</text>
-        </view>
-        <text class="review-content" v-if="r.content">{{ r.content }}</text>
-        <view class="review-tags" v-if="r.tags && r.tags.length">
-          <text class="r-tag" v-for="t in r.tags" :key="t">{{ t }}</text>
-        </view>
-        <view class="review-images" v-if="r.images && r.images.length">
-          <image v-for="(img, i) in r.images" :key="i" :src="img" mode="aspectFill"
-                 class="review-img" @click="previewImage(r.images, i)" />
-        </view>
-        <view class="review-footer">
-          <text class="like-btn" @click="like(r)">👍 {{ r.likes }}</text>
+          <view class="stat-item">
+            <text class="stat-num">{{ count(dish.review_count) }}</text>
+            <text class="stat-label">评价数</text>
+          </view>
         </view>
       </view>
 
-      <view class="empty" v-if="reviews.length === 0">
-        <text>还没有评价，快来抢沙发吧~</text>
+      <!-- 菜品描述 -->
+      <view class="section">
+        <view class="section-title">
+          <text>菜品介绍</text>
+        </view>
+        <text class="desc" v-if="dish.description">{{ dish.description }}</text>
+        <text class="desc empty-text" v-else>这道菜还没有介绍，欢迎你去尝鲜后补充评价～</text>
+      </view>
+
+      <!-- 评价列表 -->
+      <view class="section">
+        <view class="section-title">
+          <text>真实评价 ({{ reviewTotal }})</text>
+        </view>
+
+        <view class="review-item" v-for="r in reviews" :key="r.id">
+          <view class="review-header">
+            <view class="avatar">
+              <text class="avatar-text">{{ avatarText(r) }}</text>
+            </view>
+            <view class="review-user">
+              <text class="nickname">{{ nickname(r) }}</text>
+              <view class="stars">
+                <text v-for="n in 5" :key="n" :class="{ on: n <= Number(r.rating || 0) }">★</text>
+              </view>
+            </view>
+            <text class="review-time">{{ reviewTime(r) }}</text>
+          </view>
+          <text class="review-content" v-if="r.content">{{ r.content }}</text>
+        </view>
+
+        <view class="review-state" v-if="reviewLoading">
+          <text>评价加载中...</text>
+        </view>
+
+        <view class="review-empty" v-else-if="!reviews.length">
+          <text class="review-empty-icon">🍽️</text>
+          <text>还没有评价，快来抢沙发吧~</text>
+        </view>
+
+        <view class="more-btn" v-if="reviewHasMore && !reviewLoading" @click="loadMoreReviews">
+          <text>查看更多评价</text>
+        </view>
+        <view class="review-end" v-else-if="reviews.length && !reviewLoading">
+          <text>—— 已经到底啦 ——</text>
+        </view>
+      </view>
+    </template>
+
+    <!-- 底部按钮区 -->
+    <view class="action-bar" v-if="dish && !loading && !error">
+      <view class="btn-ghost" @click="goRecommend">
+        <text>回到推荐</text>
+      </view>
+      <view class="btn-primary" @click="goReview">
+        <text>✍️ 写评价</text>
       </view>
     </view>
   </view>
@@ -74,90 +119,173 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { dishApi, reviewApi } from '@/api/index.js'
 import { formatTime } from '@/common/utils.js'
+import DishImage from '@/components/DishImage/DishImage.vue'
 
-const defaultImg = '/static/jian.png'
-const defaultAvatar = '/static/userImg/user.png'
+const REVIEW_PAGE_SIZE = 5
 
+const dishId = ref('')
 const dish = ref(null)
-const reviews = ref([])
+const loading = ref(true)
+const error = ref('')
 
-onLoad(async (options) => {
-  if (options.id) {
-    await loadDish(options.id)
-    await loadReviews(options.id)
+const reviews = ref([])
+const reviewTotal = ref(0)
+const reviewPage = ref(1)
+const reviewHasMore = ref(false)
+const reviewLoading = ref(false)
+
+onLoad((options) => {
+  const opt = options || {}
+  dishId.value = opt.id || opt.dish_id || ''
+  if (!dishId.value) {
+    loading.value = false
+    error.value = '菜品不存在或已被移除'
+    return
   }
+  loadDish()
 })
 
-async function loadDish(id) {
+async function loadDish() {
+  loading.value = true
+  error.value = ''
   try {
-    dish.value = await dishApi.detail(id)
+    const data = await dishApi.detail(dishId.value)
+    if (!data || (!data.id && !data.name)) {
+      dish.value = null
+      error.value = '菜品不存在或已下架'
+      return
+    }
+    dish.value = data
+    await loadReviews(true)
   } catch (e) {
-    uni.showToast({ title: '菜品不存在', icon: 'none' })
+    dish.value = null
+    error.value = '菜品不存在或加载失败，请稍后重试'
+    uni.showToast({ title: '菜品加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
   }
 }
 
-async function loadReviews(id) {
+async function loadReviews(reset = false) {
+  if (!dishId.value || reviewLoading.value) return
+  if (!reset && !reviewHasMore.value) return
+
+  const targetPage = reset ? 1 : reviewPage.value
+  reviewLoading.value = true
+
   try {
-    const data = await reviewApi.list({ dish_id: id, audit_status: 'approved', page_size: 50 })
-    reviews.value = data.list || []
-  } catch (e) {}
+    const res = await reviewApi.list({
+      dish_id: dishId.value,
+      page: targetPage,
+      pageSize: REVIEW_PAGE_SIZE
+    })
+    const rows = Array.isArray(res) ? res : ((res && res.list) || [])
+    reviews.value = reset ? rows : [...reviews.value, ...rows]
+
+    if (res && typeof res.total === 'number') {
+      reviewTotal.value = res.total
+    } else if (reset) {
+      reviewTotal.value = rows.length
+    }
+
+    reviewHasMore.value = res && typeof res.hasMore === 'boolean' ? res.hasMore : rows.length >= REVIEW_PAGE_SIZE
+    reviewPage.value = targetPage + 1
+  } catch (e) {
+    uni.showToast({ title: '评价加载失败', icon: 'none' })
+  } finally {
+    reviewLoading.value = false
+  }
 }
 
-function like(r) {
-  reviewApi.like(r.id).then(() => {
-    r.likes++
-    uni.showToast({ title: '点赞成功', icon: 'success' })
-  })
-}
-
-function previewImage(images, index) {
-  uni.previewImage({ urls: images, current: index })
+function loadMoreReviews() {
+  loadReviews(false)
 }
 
 function goReview() {
-  uni.navigateTo({ url: `/pages/review/review?dish_id=${dish.value.id}` })
+  if (!dish.value) return
+  const name = encodeURIComponent(dish.value.name || '')
+  uni.navigateTo({ url: `/pages/review/review?dish_id=${dish.value.id}&dish_name=${name}` })
+}
+
+function goRecommend() {
+  uni.switchTab({ url: '/pages/recommend/recommend' })
+}
+
+/* ===== 展示辅助 ===== */
+function nickname(r) {
+  return r.user_nickname || r.nickname || r.user_name || '匿名同学'
+}
+
+function avatarText(r) {
+  const name = nickname(r)
+  return name ? name.slice(0, 1) : '同'
+}
+
+function reviewTime(r) {
+  return formatTime(r.created_at || r.create_time || r.create_date)
+}
+
+function money(value) {
+  const n = Number(value)
+  if (!isFinite(n)) return '¥--'
+  return `¥${n % 1 === 0 ? n : n.toFixed(1)}`
+}
+
+function ratingText(value) {
+  const n = Number(value)
+  return n > 0 ? n.toFixed(1) : '暂无'
+}
+
+function count(value) {
+  const n = Number(value)
+  return isFinite(n) && n > 0 ? n : 0
 }
 </script>
 
 <style scoped>
 .dish-page {
-  padding-bottom: 140rpx;
-  background: #f5f5f5;
   min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 160rpx;
 }
 
-.dish-hero {
-  width: 100%;
-  height: 400rpx;
-  background: #e0e0e0;
+/* 菜品大图展示区：有图显示照片，无图由 DishImage 回退为 emoji 方块 */
+.hero {
+  height: 420rpx;
+  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* 信息卡片 */
 .info-card {
-  background: #fff;
-  margin: -40rpx 24rpx 0;
-  border-radius: 20rpx;
-  padding: 30rpx;
   position: relative;
   z-index: 2;
+  margin: -50rpx 24rpx 0;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 30rpx;
 }
 
 .name-row {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
+  justify-content: space-between;
 }
 
 .dish-name {
-  font-size: 36rpx;
+  flex: 1;
+  font-size: 38rpx;
   font-weight: bold;
   color: #333;
-  flex: 1;
+  margin-right: 20rpx;
 }
 
 .dish-price {
-  font-size: 36rpx;
-  color: #FF6B35;
+  font-size: 38rpx;
   font-weight: bold;
+  color: #FF6B35;
 }
 
 .meta-row {
@@ -165,7 +293,6 @@ function goReview() {
   align-items: center;
   margin-top: 16rpx;
   font-size: 24rpx;
-  color: #999;
 }
 
 .rating {
@@ -173,62 +300,64 @@ function goReview() {
 }
 
 .divider {
-  margin: 0 12rpx;
-  color: #ddd;
-}
-
-.loc-row {
-  margin-top: 16rpx;
+  margin: 0 14rpx;
+  color: #e0e0e0;
 }
 
 .loc {
-  font-size: 26rpx;
   color: #666;
+  flex: 1;
 }
 
 .tag-row {
-  margin-top: 16rpx;
   display: flex;
   flex-wrap: wrap;
   gap: 12rpx;
+  margin-top: 20rpx;
 }
 
 .tag {
   font-size: 22rpx;
   color: #FF6B35;
   background: #FFF0EB;
-  padding: 6rpx 16rpx;
+  padding: 6rpx 18rpx;
   border-radius: 8rpx;
 }
 
-.desc {
-  margin-top: 20rpx;
-  font-size: 26rpx;
-  color: #666;
-  line-height: 1.6;
+.tag-empty {
+  font-size: 22rpx;
+  color: #bbb;
 }
 
-.review-btn {
-  position: fixed;
-  bottom: 30rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  height: 88rpx;
-  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
-  border-radius: 44rpx;
+.stats-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
-  z-index: 10;
-  box-shadow: 0 8rpx 20rpx rgba(255, 107, 53, 0.3);
+  margin-top: 26rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
 }
 
-.reviews-section {
-  margin: 30rpx 24rpx;
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-num {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #FF6B35;
+}
+
+.stat-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+
+/* 通用区块 */
+.section {
+  margin: 24rpx;
   background: #fff;
   border-radius: 20rpx;
   padding: 30rpx;
@@ -241,8 +370,20 @@ function goReview() {
   margin-bottom: 20rpx;
 }
 
+.desc {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.7;
+  display: block;
+}
+
+.empty-text {
+  color: #bbb;
+}
+
+/* 评价 */
 .review-item {
-  padding: 20rpx 0;
+  padding: 22rpx 0;
   border-bottom: 1rpx solid #f0f0f0;
 }
 
@@ -259,11 +400,22 @@ function goReview() {
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
+  background: #FFF0EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  font-size: 26rpx;
+  color: #FF6B35;
 }
 
 .review-user {
   flex: 1;
+  min-width: 0;
 }
 
 .nickname {
@@ -277,8 +429,9 @@ function goReview() {
 }
 
 .stars text {
-  color: #ddd;
   font-size: 22rpx;
+  color: #ddd;
+  margin-right: 2rpx;
 }
 
 .stars text.on {
@@ -288,57 +441,112 @@ function goReview() {
 .review-time {
   font-size: 22rpx;
   color: #bbb;
+  flex-shrink: 0;
 }
 
 .review-content {
-  margin-top: 12rpx;
-  font-size: 26rpx;
-  color: #333;
-  line-height: 1.6;
   display: block;
-}
-
-.review-tags {
-  margin-top: 12rpx;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-}
-
-.r-tag {
-  font-size: 20rpx;
-  color: #666;
-  background: #f5f5f5;
-  padding: 4rpx 12rpx;
-  border-radius: 6rpx;
-}
-
-.review-images {
-  margin-top: 12rpx;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-}
-
-.review-img {
-  width: 180rpx;
-  height: 180rpx;
-  border-radius: 8rpx;
-}
-
-.review-footer {
-  margin-top: 12rpx;
-}
-
-.like-btn {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.empty {
-  text-align: center;
-  padding: 60rpx 0;
-  color: #bbb;
+  margin-top: 14rpx;
   font-size: 26rpx;
+  color: #444;
+  line-height: 1.7;
+}
+
+.review-state,
+.review-end {
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 24rpx;
+  color: #bbb;
+}
+
+.review-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 50rpx 0;
+  font-size: 26rpx;
+  color: #bbb;
+}
+
+.review-empty-icon {
+  font-size: 66rpx;
+  margin-bottom: 16rpx;
+}
+
+.more-btn {
+  margin-top: 24rpx;
+  height: 72rpx;
+  border: 2rpx solid #FF6B35;
+  border-radius: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: #FF6B35;
+}
+
+/* 底部按钮 */
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+
+.btn-ghost,
+.btn-primary {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+
+.btn-ghost {
+  color: #FF6B35;
+  border: 2rpx solid #FF6B35;
+}
+
+.btn-primary {
+  color: #fff;
+  font-weight: 500;
+  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+}
+
+/* 状态 */
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 200rpx 60rpx;
+}
+
+.state-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.state-text {
+  font-size: 28rpx;
+  color: #999;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.state-btn {
+  margin-top: 30rpx;
+  padding: 14rpx 44rpx;
+  font-size: 26rpx;
+  color: #FF6B35;
+  border: 2rpx solid #FF6B35;
+  border-radius: 32rpx;
 }
 </style>

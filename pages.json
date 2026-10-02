@@ -59,14 +59,6 @@
       }
     },
     {
-      "path": "pages/user/edit",
-      "style": {
-        "navigationBarTitleText": "编辑资料",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white"
-      }
-    },
-    {
       "path": "pages/admin/index",
       "style": {
         "navigationBarTitleText": "管理后台",
@@ -79,7 +71,8 @@
       "style": {
         "navigationBarTitleText": "数据看板",
         "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white"
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -87,7 +80,8 @@
       "style": {
         "navigationBarTitleText": "菜品管理",
         "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white"
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -103,13 +97,23 @@
       "style": {
         "navigationBarTitleText": "评价审核",
         "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white"
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/admin/users",
       "style": {
-        "navigationBarTitleText": "用户管理",
+        "navigationBarTitleText": "评价数据",
+        "navigationBarBackgroundColor": "#333333",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/admin/ai-config",
+      "style": {
+        "navigationBarTitleText": "AI 配置",
         "navigationBarBackgroundColor": "#333333",
         "navigationBarTextStyle": "white"
       }
@@ -152,5 +156,11 @@
     "navigationBarTitleText": "食遇校园",
     "navigationBarBackgroundColor": "#FF6B35",
     "backgroundColor": "#F5F5F5"
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^DishImage$": "@/components/DishImage/DishImage.vue"
+    }
   }
 }

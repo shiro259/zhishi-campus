@@ -3,89 +3,91 @@
   "required": ["name", "price", "canteen", "window"],
   "permission": {
     "read": true,
-    "create": "auth.role == 'admin'",
-    "update": "auth.role == 'admin'",
-    "delete": "auth.role == 'admin'"
+    "create": "false",
+    "update": "false",
+    "delete": "false"
   },
   "properties": {
     "_id": {
-      "description": "菜品ID"
+      "description": "菜品唯一ID，由数据库自动生成",
+      "title": "菜品ID"
     },
     "name": {
       "bsonType": "string",
-      "description": "菜品名称",
+      "description": "菜品名称，例如：宫保鸡丁",
       "title": "菜品名称"
     },
     "price": {
       "bsonType": "double",
-      "description": "价格（元）",
+      "description": "菜品单价，单位：元",
       "title": "价格"
     },
     "canteen": {
       "bsonType": "string",
-      "description": "所属食堂",
-      "title": "食堂"
+      "description": "所属食堂名称，例如：第一食堂",
+      "title": "所属食堂"
     },
     "window": {
       "bsonType": "string",
-      "description": "所属窗口",
-      "title": "窗口"
+      "description": "所属窗口名称，例如：川味窗口",
+      "title": "所属窗口"
     },
     "category": {
       "bsonType": "string",
-      "description": "分类标签",
-      "title": "分类",
+      "description": "菜品种类，例如：川菜、面食、快餐",
+      "title": "菜品分类",
       "defaultValue": "其他"
     },
     "tags": {
       "bsonType": "array",
-      "description": "口味标签",
-      "title": "口味标签",
+      "description": "口味与食材标签，既包含口味词（辣、清淡等）也包含食材词（香菜、花生等），用于AI推荐的忌口硬过滤",
+      "title": "口味食材标签",
       "defaultValue": []
     },
-    "image": {
+    "emoji": {
       "bsonType": "string",
-      "description": "菜品图片URL",
-      "title": "图片"
+      "description": "菜品图片统一用 emoji 占位，无图片资源，前端直接展示该字符",
+      "title": "表情占位图"
     },
     "description": {
       "bsonType": "string",
-      "description": "菜品描述",
-      "title": "描述"
+      "description": "菜品简介，20~30字中文描述，用于列表和详情展示",
+      "title": "菜品描述"
     },
     "rating": {
       "bsonType": "double",
-      "description": "综合评分",
-      "title": "评分",
+      "description": "综合评分，范围 0~5，保留一位小数",
+      "title": "综合评分",
       "defaultValue": 0
     },
     "review_count": {
       "bsonType": "int",
-      "description": "评价数量",
-      "title": "评价数",
+      "description": "累计评价条数",
+      "title": "评价数量",
       "defaultValue": 0
     },
     "recommend_count": {
       "bsonType": "int",
-      "description": "推荐次数",
+      "description": "被AI推荐累计次数，用于热门榜排序",
       "title": "推荐次数",
       "defaultValue": 0
     },
     "status": {
       "bsonType": "int",
-      "description": "上架状态 1上架 0下架",
-      "title": "状态",
+      "description": "上架状态，1表示上架可推荐，0表示下架不可见",
+      "title": "上架状态",
       "defaultValue": 1
     },
     "is_new": {
       "bsonType": "bool",
-      "description": "是否新品",
-      "title": "新品",
+      "description": "是否为新品，true表示新品窗口",
+      "title": "是否新品",
       "defaultValue": false
     },
     "create_date": {
       "bsonType": "timestamp",
-      "description": "创建时间",
+      "description": "创建时间，由数据库自动写入当前时间戳",
+      "title": "创建时间",
       "forceDefaultValue": {
         "$env": "now"
       }

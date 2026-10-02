@@ -1,7 +1,0 @@
-{
-  "name": "upload-image",
-  "version": "1.0.0",
-  "description": "图片上传到云存储",
-  "main": "index.js",
-  "dependencies": {}
-}

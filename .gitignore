@@ -14,3 +14,9 @@ unpackage/dist/dev/
 
 # python
 *.pyc
+__pycache__/
+
+# 可选后端（FastAPI 备用链路）的虚拟环境与本地数据库，不入库
+backend/venv/
+backend/.env
+backend/*.db
