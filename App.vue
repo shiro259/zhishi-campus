@@ -14,6 +14,7 @@
 
 <style>
   /* 全局样式 */
+  /*   */
   view {
     box-sizing: border-box;
   }

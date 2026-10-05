@@ -89,7 +89,7 @@
 import { ref } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { reviewApi } from '@/api/index.js'
-import { formatTime, renderStars, getUserInfo } from '@/common/utils.js'
+import { formatTime, renderStars, ensureAdmin } from '@/common/utils.js'
 
 /** 待审核一页 20 条；「全部」按需求一次取 50 条 */
 const PAGE_SIZE = { pending: 20, all: 50 }
@@ -135,8 +135,12 @@ async function fetchPage(targetPage, append) {
 
   try {
     const params = { page: targetPage, pageSize: PAGE_SIZE[tab.value] }
+    // 「全部」页签必须带 all:true：默认的 list 只回已通过审核的，
+    // 否则待审核与已拒绝的条目不在这页出现，管理员也看不到被拒记录
     const res =
-      tab.value === 'pending' ? await reviewApi.pending(params) : await reviewApi.list(params)
+      tab.value === 'pending'
+        ? await reviewApi.pending(params)
+        : await reviewApi.list({ ...params, all: true })
 
     // 请求期间用户切了 tab，丢弃这次结果
     if (token !== seq) return
@@ -203,12 +207,10 @@ async function audit(r, status) {
 
 /* ------------------------------ 生命周期 ------------------------------ */
 
-onLoad(() => {
-  const user = getUserInfo()
-  if (!user || user.role !== 'admin') {
+onLoad(async () => {
+  // 服务端验签把守（凭证过期 / 口令已改都会被拒），不能只看本机 role
+  if (!(await ensureAdmin())) {
     denied = true
-    uni.showToast({ title: '仅管理员可审核评价', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 1200)
     return
   }
   fetchPage(1, false)

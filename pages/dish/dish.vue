@@ -30,7 +30,7 @@
         <view class="meta-row">
           <text class="rating">⭐ {{ ratingText(dish.rating) }} 分</text>
           <text class="divider">|</text>
-          <text class="loc">📍 {{ dish.canteen || '未知食堂' }} · {{ dish.window || '未知窗口' }}</text>
+          <text class="loc">📍 {{ formatLocation(dish) || '位置待完善' }}</text>
         </view>
 
         <view class="tag-row" v-if="dish.tags && dish.tags.length">
@@ -118,7 +118,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { dishApi, reviewApi } from '@/api/index.js'
-import { formatTime } from '@/common/utils.js'
+import { formatTime, formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 
 const REVIEW_PAGE_SIZE = 5

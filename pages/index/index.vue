@@ -39,9 +39,9 @@
           <text
             class="quick-tag"
             v-for="t in quickTastes"
-            :key="t"
-            @click="pickTaste(t)"
-          >{{ t }}</text>
+            :key="t.value"
+            @click="pickTaste(t.value)"
+          >{{ t.label }}</text>
         </view>
       </view>
     </view>
@@ -103,7 +103,7 @@
           <DishImage class="rank-img" :dish="d" :size="100" :radius="12" />
           <view class="rank-info">
             <text class="rank-name">{{ d.name }}</text>
-            <text class="rank-loc">{{ d.canteen || '未知食堂' }} · {{ d.window || '未知窗口' }}</text>
+            <text class="rank-loc">{{ formatLocation(d) || '位置待完善' }}</text>
             <view class="rank-tags" v-if="d.tags && d.tags.length">
               <text class="tag" v-for="t in d.tags.slice(0, 3)" :key="t">{{ t }}</text>
             </view>
@@ -169,7 +169,7 @@ import { ref, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { dishApi, recommendApi, userApi } from '@/api/index.js'
 import { MEAL_TYPES, TASTE_OPTIONS, EMOJI_MAP } from '@/common/constants.js'
-import { formatPrice } from '@/common/utils.js'
+import { formatPrice, formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 
 /* -------------------------------- 页面状态 -------------------------------- */
@@ -288,20 +288,23 @@ function goRecommend() {
 }
 
 /**
- * 点快捷口味：先把偏好写进本地档案，再切到推荐页，
- * 推荐页 onMounted 时会用 getSavedPref() 自动回填，用户少点几步。
+ * 点快捷口味：先把偏好写进本地档案，再用一次性 key 交给推荐页回填，
+ * 然后切到推荐页 —— 推荐页是 tabBar 页，switchTab 不能带 query，
+ * 只能靠本地暂存传递，由推荐页 onShow 读取后立即删除并填进输入框。
  */
 function pickTaste(tag) {
   try {
     const saved = recommendApi.getSavedPref() || {}
-    recommendApi.savePref({
+    const pref = {
       meal_type: saved.meal_type || mealType.value,
       taste: [tag],
       allergies: Array.isArray(saved.allergies) ? saved.allergies : [],
       budget: saved.budget || null,
       canteen: saved.canteen || '',
       extra: saved.extra || ''
-    })
+    }
+    recommendApi.savePref(pref)
+    uni.setStorageSync('shiyu_pending_pref', pref)
   } catch (e) {
     // 偏好写入失败不阻塞跳转
   }

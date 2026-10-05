@@ -97,7 +97,7 @@
             <text class="dish-new" v-if="d.is_new">NEW</text>
           </view>
 
-          <text class="dish-loc">{{ d.canteen || '未知食堂' }} · {{ d.window || '未知窗口' }}</text>
+          <text class="dish-loc">{{ formatLocation(d) || '位置待完善' }}</text>
 
           <view class="dish-tags" v-if="d.tags && d.tags.length">
             <text class="tag" v-for="(t, i) in d.tags.slice(0, 3)" :key="i">{{ t }}</text>
@@ -123,6 +123,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import { dishApi } from '@/api/index.js'
+import { formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 
 const PAGE_SIZE = 10

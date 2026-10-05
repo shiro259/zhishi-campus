@@ -74,11 +74,10 @@ class AIService:
         return prompt
 
     async def call_llm(self, prompt: str) -> Optional[str]:
-        """调用大模型 API"""
+        """调用大模型 API（单轮）"""
         if not self.api_key:
             return None
 
-        # 兼容不同厂商的端点
         url = f"{self.base_url.rstrip('/')}/chat/completions"
 
         payload = {
@@ -100,6 +99,92 @@ class AIService:
         except Exception as e:
             print(f"[AI Service] LLM 调用失败: {e}")
             return None
+
+    async def chat(self, messages: list, dish_list: list) -> dict:
+        """多轮对话聊天模式
+
+        Args:
+            messages: 对话历史 [{"role": "user/assistant", "content": "..."}]
+            dish_list: 菜品库 [{"id","name","price","canteen","tags","rating","description"}]
+
+        Returns: {"content": "AI回复文本", "dishes": [推荐菜品列表]}
+        """
+        if not self.api_key:
+            return {
+                "content": "抱歉，后端尚未配置大模型 API Key。请联系管理员在 .env 文件中设置 AI_API_KEY。",
+                "dishes": []
+            }
+
+        # 构建菜品库文本
+        dishes_text = "\n".join(
+            f"{d['id']} {d['name']} ¥{d['price']} {d['canteen']} "
+            f"标签:{'/'.join(d.get('tags', []))} 评分:{d.get('rating', 0)} {d.get('description', '')}"
+            for d in dish_list
+        )
+
+        system_prompt = f"""你是校园食堂AI助手"食遇AI"。学生可以和你聊天，问你想吃什么、查菜品、要推荐。
+
+你有以下菜品库：
+{dishes_text}
+
+规则：
+1. 只能从上面的菜品库中推荐，不能编造不存在的菜
+2. 如果学生说了忌口（如不吃香菜），绝不推荐含该食材的菜
+3. 如果学生说了预算，推荐的价格不能超过预算
+4. 如果学生提到了具体食材（如鸡肉、牛肉、面条、豆腐等），优先推荐包含该食材或与该食材相关的菜品
+5. 如果菜品库中没有学生要的食材，诚实告知并推荐相似的替代菜品
+6. 回答要自然、口语化，像朋友聊天一样，先说一段话再推荐菜品
+7. 当你推荐菜品时，在文字回答的末尾，另起一行，用特殊格式标注推荐的菜品，格式为：
+   [DISH:菜品ID,菜品ID,菜品ID]
+8. 不推荐菜品时（比如学生只是问价格、问食堂在哪），不需要加这个标注
+9. 如果学生的问题和吃饭/食堂无关，友好地把话题拉回美食
+
+示例对话：
+学生：想吃鸡肉
+你：想吃鸡肉呀！给你推荐几道鸡肉菜：\n\n1. 宫保鸡丁 ¥12 — 鸡丁鲜嫩，花生酥脆，甜辣适口，人气爆款！\n2. 白切鸡 ¥16 — 皮爽肉滑，原汁原味，配姜葱酱绝佳！\n\n都是同学评价很高的鸡肉菜哦！\n[DISH:d002,d012]
+
+学生：想吃辣的，10块以内
+你：来，给你推荐几道又辣又实惠的菜！\n\n1. 重庆小面 ¥9 — 麻辣鲜香，面条劲道，正宗重庆味！\n2. 麻婆豆腐 ¥8 — 经典川菜，麻辣鲜香，配米饭一绝！\n\n这两道都在预算内，够辣够过瘾！\n[DISH:d007,d001]"""
+
+        # 组装完整消息列表
+        full_messages = [{"role": "system", "content": system_prompt}] + messages[-13:]
+
+        url = f"{self.base_url.rstrip('/')}/chat/completions"
+        payload = {
+            "model": self.model,
+            "messages": full_messages,
+            "temperature": 0.8,
+            "max_tokens": 1000
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(url, headers=self._get_headers(), json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                reply = data["choices"][0]["message"]["content"]
+
+                # 解析 [DISH:id1,id2] 标注
+                import re
+                dish_match = re.search(r'\[DISH:([^\]]+)\]', reply)
+                dishes = []
+                if dish_match:
+                    ids = [s.strip() for s in dish_match.group(1).split(',')]
+                    dish_map = {d["id"]: d for d in dish_list}
+                    for did in ids:
+                        if did in dish_map:
+                            dishes.append(dish_map[did])
+
+                # 去掉标注，保留纯文字
+                content = re.sub(r'\[DISH:[^\]]+\]', '', reply).strip()
+
+                return {"content": content, "dishes": dishes}
+        except Exception as e:
+            print(f"[AI Service] 聊天调用失败: {e}")
+            return {
+                "content": f"抱歉，AI服务暂时不可用：{str(e)}",
+                "dishes": []
+            }
 
     def _parse_llm_response(self, text: str) -> Optional[dict]:
         """解析 LLM 返回的 JSON"""

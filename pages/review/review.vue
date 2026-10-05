@@ -76,7 +76,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { dishApi, reviewApi } from '@/api/index.js'
-import { getUserInfo } from '@/common/utils.js'
+import { getUserInfo, formatLocation } from '@/common/utils.js'
 
 const RATING_TEXT = {
   1: '很差',
@@ -104,9 +104,7 @@ const briefName = computed(() => (dish.value && dish.value.name) || dishName.val
 const briefEmoji = computed(() => (dish.value && dish.value.emoji) || '🍽️')
 const briefLoc = computed(() => {
   if (!dish.value) return ''
-  const canteen = dish.value.canteen || ''
-  const window = dish.value.window || ''
-  return canteen || window ? `${canteen} · ${window}`.replace(/^ · | · $/, '') : ''
+  return formatLocation(dish.value)
 })
 const briefPrice = computed(() => {
   const n = Number(dish.value && dish.value.price)

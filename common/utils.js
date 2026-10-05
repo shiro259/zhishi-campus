@@ -2,6 +2,10 @@
  * 公共工具方法
  */
 import { EMOJI_MAP } from './constants.js'
+// 静态引入 adminAuthApi：api/index.js 只依赖 common 下的
+// constants / local-dishes / recommend-engine，都不回头依赖本文件，
+// 因此这里不会形成循环依赖。不用动态 import() —— 微信小程序运行时对它支持不可靠。
+import { adminAuthApi } from '@/api/index.js'
 
 /** 本地图片目录约定：static/dishes/<菜品id>.jpg */
 const DISH_IMAGE_DIR = 'static/dishes/'
@@ -38,6 +42,24 @@ export function dishEmoji(dish) {
   if (!dish) return '🍽️'
   if (dish.emoji) return dish.emoji
   return (EMOJI_MAP && EMOJI_MAP[dish.category]) || '🍽️'
+}
+
+/**
+ * 菜品位置文案：「第二食堂 · 2楼 · 3号窗口」
+ *
+ * 楼层和窗口都可能缺（例如刚同步进来还没重填位置的菜），
+ * 缺哪段就跳过哪段，全缺时返回空串，由调用方决定兜底文案。
+ *
+ * @param {Object} dish 需含 canteen / floor / window
+ * @returns {string}
+ */
+export function formatLocation(dish) {
+  if (!dish) return ''
+  const parts = []
+  if (dish.canteen) parts.push(String(dish.canteen))
+  if (dish.floor) parts.push(dish.floor + '楼')
+  if (dish.window) parts.push(String(dish.window))
+  return parts.join(' · ')
 }
 
 /**
@@ -110,14 +132,65 @@ export function isLoggedIn() {
 export function clearAuth() {
   uni.removeStorageSync('token')
   uni.removeStorageSync('userInfo')
+  // 同时清掉管理员凭证，避免退出后仍留着可用的后台通行证
+  uni.removeStorageSync('shiyu_admin_token')
 }
 
 /**
- * 检查是否管理员
+ * 检查是否管理员（只反映本机标记，不代表凭证此刻仍然有效）
  */
 export function isAdmin() {
   const user = getUserInfo()
   return user && user.role === 'admin'
+}
+
+/** 无权限时提示并离开当前管理页 */
+function denyAdmin() {
+  uni.showToast({ title: '需要管理员权限', icon: 'none' })
+  setTimeout(() => {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    if (pages && pages.length > 1) {
+      uni.navigateBack()
+    } else {
+      uni.reLaunch({ url: '/pages/login/login' })
+    }
+  }, 1200)
+}
+
+/**
+ * 管理后台页面守卫（pages/admin/* 进入时都应调用）
+ *
+ * 为什么不能只看本地 role：
+ * 本机标记可能已过期，或者管理员刚改过口令 —— 云函数签发的凭证签名里掺了口令摘要，
+ * 改口令后旧凭证立即失效，只看本地标记会误以为还有权限。
+ * 而本机的 role:'admin' 现在只能由一次「账号口令认证成功」写入（登录页已不再让用户自选），
+ * 所以当云端根本不可达时允许先放行，而不是把人锁在门外。
+ *
+ * @returns {Promise<boolean>} true 表示确认管理员身份，可以继续渲染
+ */
+export async function ensureAdmin() {
+  const user = getUserInfo()
+  if (!user || user.role !== 'admin') {
+    denyAdmin()
+    return false
+  }
+
+  // 静态引入的 adminAuthApi：本次校验会真的问一次云端
+  const res = await adminAuthApi.verify()
+
+  if (res.ok) return true
+
+  if (res.offline) {
+    // 云端连不上：本地 role 只可能来自一次成功登录，先放行但明确告知未校验
+    uni.showToast({ title: '云端不可用，本次未校验管理员凭证', icon: 'none' })
+    return true
+  }
+
+  // 云端明确拒绝了凭证（过期 / 口令已改 / 伪造）→ 清掉管理员身份并退回登录页
+  adminAuthApi.logout()
+  uni.showToast({ title: res.reason || '管理员凭证无效，请重新登录', icon: 'none' })
+  setTimeout(() => uni.reLaunch({ url: '/pages/login/login' }), 1200)
+  return false
 }
 
 /**

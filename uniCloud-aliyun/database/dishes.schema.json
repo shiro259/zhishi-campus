@@ -24,12 +24,18 @@
     },
     "canteen": {
       "bsonType": "string",
-      "description": "所属食堂名称，例如：第一食堂",
+      "description": "所属食堂：第一食堂 / 第二食堂 / 第三食堂（与 common/constants.js 的 CANTEEN_FLOORS 一致）",
       "title": "所属食堂"
+    },
+    "floor": {
+      "bsonType": "int",
+      "description": "所属楼层，从 1 开始；上限由所在食堂决定（第一/第二食堂 3 层，第三食堂 2 层）。每层都有一套 1~10 号窗口",
+      "title": "所属楼层",
+      "minimum": 1
     },
     "window": {
       "bsonType": "string",
-      "description": "所属窗口名称，例如：川味窗口",
+      "description": "所属窗口：编号窗口写「3号窗口」（每层都有 1~10 号），不属于编号窗口的自定义档口直接写名字，例如「滋士客汉堡」「自选餐」",
       "title": "所属窗口"
     },
     "category": {
@@ -46,8 +52,14 @@
     },
     "emoji": {
       "bsonType": "string",
-      "description": "菜品图片统一用 emoji 占位，无图片资源，前端直接展示该字符",
+      "description": "无图时展示的 emoji 占位字符",
       "title": "表情占位图"
+    },
+    "image": {
+      "bsonType": "string",
+      "description": "菜品图片：后台从相册上传后存 uniCloud 云存储的 fileID（cloud:// 开头），也可填普通图片地址（static/... 或 https://...）。留空则回退为 emoji 占位。注意 fileID 不能直接给 image 组件，展示时由 DishImage 组件用 getTempFileURL 换取临时地址",
+      "title": "菜品图片",
+      "trim": "both"
     },
     "description": {
       "bsonType": "string",

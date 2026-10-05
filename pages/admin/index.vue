@@ -52,9 +52,20 @@
       <text class="tip-line">· 「AI 配置」页需要填写大模型 API Key 才能启用 AI 推荐。</text>
       <text class="tip-line">· API Key 保存在云端，只有云函数可读写，不会下发到客户端。</text>
       <text class="tip-line">· 「重置菜品库」会清空现有菜品数据，请谨慎操作。</text>
+      <text class="tip-line">· 管理员身份不影响使用学生端：可照常浏览菜品、用 AI 推荐、发评价。</text>
     </view>
 
-    <view class="logout" @click="onLogout">退出管理后台</view>
+    <!--
+      管理员身份仍然有效时随时可以回学生端查看。
+      这里刻意用 switchTab 而不是退出登录 —— 看学生视角不需要放弃管理员认证。
+    -->
+    <view class="front-entry" @click="goStudentSide">
+      <text class="front-entry-icon">🍜</text>
+      <text class="front-entry-text">返回学生端查看</text>
+      <text class="front-entry-arrow">›</text>
+    </view>
+
+    <view class="logout" @click="onLogout">退出登录</view>
   </view>
 </template>
 
@@ -62,7 +73,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { configApi, dishApi, reviewApi, userApi } from '@/api/index.js'
-import { getUserInfo, clearAuth } from '@/common/utils.js'
+import { getUserInfo, clearAuth, ensureAdmin } from '@/common/utils.js'
 
 const menus = [
   { key: 'dashboard', icon: '📊', label: '数据看板', desc: '运营数据总览', url: '/pages/admin/dashboard' },
@@ -78,28 +89,14 @@ const syncing = ref(false)
 const resetting = ref(false)
 const seedTip = ref('')
 
-onShow(() => {
-  const info = getUserInfo()
-  if ((info?.role) !== 'admin') {
-    uni.showToast({ title: '需要管理员权限', icon: 'none' })
-    setTimeout(() => {
-      leaveAdmin()
-    }, 1200)
-    return
-  }
+onShow(async () => {
+  // 用服务端验签把守：凭证过期、或管理员刚改过口令，这里都会被拒绝。
+  // 只看本机 role 是不够的 —— 它无法反映凭证此刻是否仍然有效。
+  if (!(await ensureAdmin())) return
+  const info = getUserInfo() || {}
   nickname.value = info.nickname || info.username || '管理员'
   loadPending()
 })
-
-// 无上级页面时（例如直接进入管理后台）退回首页，避免 navigateBack 失败卡住
-function leaveAdmin() {
-  const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
-  if (pages && pages.length > 1) {
-    uni.navigateBack()
-  } else {
-    uni.reLaunch({ url: '/pages/index/index' })
-  }
-}
 
 async function loadPending() {
   try {
@@ -195,10 +192,21 @@ async function doSeed(action) {
   }
 }
 
+/**
+ * 回学生端
+ *
+ * 只切换视角，保留管理员登录状态 —— 管理员查看学生端效果是常态需求，
+ * 不该为此退出登录再重新认证。回到后台走「我的 → 管理后台」即可。
+ */
+function goStudentSide() {
+  uni.switchTab({ url: '/pages/index/index' })
+}
+
+/** 退出登录：清掉本机身份与管理员凭证，需要重新认证才能再进后台 */
 async function onLogout() {
   uni.showModal({
-    title: '提示',
-    content: '确定退出管理后台吗？',
+    title: '退出登录',
+    content: '确定退出登录吗？退出后需要重新认证才能进入管理后台。',
     success: async (res) => {
       if (!res.confirm) return
       try {
@@ -207,6 +215,8 @@ async function onLogout() {
         // 本地身份清理失败不阻塞退出
       }
       try {
+        // clearAuth 会一并清掉管理员凭证 shiyu_admin_token，
+        // 否则退出后本机还留着一张可用的后台通行证
         clearAuth()
       } catch (e) {
         // 忽略
@@ -386,8 +396,35 @@ function errorMessage(e, fallback) {
   line-height: 1.9;
 }
 
+/* 回学生端入口：与「退出登录」刻意分开，一个换视角、一个放弃认证 */
+.front-entry {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  padding: 30rpx 28rpx;
+  background: #fff;
+  border-radius: 20rpx;
+}
+
+.front-entry-icon {
+  font-size: 40rpx;
+  margin-right: 20rpx;
+}
+
+.front-entry-text {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.front-entry-arrow {
+  font-size: 36rpx;
+  color: #bbb;
+}
+
 .logout {
-  margin: 50rpx 0 30rpx;
+  margin: 40rpx 0 30rpx;
   text-align: center;
   font-size: 28rpx;
   color: #FF4D4F;

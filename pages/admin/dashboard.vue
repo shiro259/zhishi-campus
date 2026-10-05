@@ -112,7 +112,7 @@
           <DishImage :dish="d" :size="80" :radius="10" />
           <view class="top-main">
             <text class="top-name">{{ d.name }}</text>
-            <text class="top-sub">{{ d.canteen }}{{ d.window ? ' · ' + d.window : '' }}</text>
+            <text class="top-sub">{{ formatLocation(d) || '位置待完善' }}</text>
           </view>
           <text class="top-count">{{ d.recommend_count || 0 }} 次</text>
         </view>
@@ -134,7 +134,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { statsApi, dishApi } from '@/api/index.js'
-import { getUserInfo, formatPrice } from '@/common/utils.js'
+import { formatPrice, ensureAdmin, formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 
 const loading = ref(false)
@@ -243,12 +243,10 @@ async function load() {
 
 /* ------------------------------ 生命周期 ------------------------------ */
 
-onLoad(() => {
-  const user = getUserInfo()
-  if (!user || user.role !== 'admin') {
+onLoad(async () => {
+  // 服务端验签把守（凭证过期 / 口令已改都会被拒），不能只看本机 role
+  if (!(await ensureAdmin())) {
     denied = true
-    uni.showToast({ title: '仅管理员可查看数据看板', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 1200)
     return
   }
   load()

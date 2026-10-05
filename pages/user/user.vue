@@ -5,13 +5,15 @@
       <!-- 已登录 -->
       <view class="header-main" v-if="isLogin">
         <view class="avatar">
+          <!-- 头像有两种：登录页随机挑的 emoji，或云存储/网络图片地址。
+               只有真正的地址才能交给 <image>，否则小程序会把 emoji 当路径加载，头像变成空白 -->
           <image
-            v-if="profile.avatar"
+            v-if="profile.avatar && avatarIsImage"
             class="avatar-img"
             :src="profile.avatar"
             mode="aspectFill"
           />
-          <text v-else class="avatar-emoji">😋</text>
+          <text v-else class="avatar-emoji">{{ profile.avatar || '😋' }}</text>
         </view>
         <view class="header-info">
           <view class="name-row">
@@ -171,6 +173,17 @@ const isLogin = computed(() => !!profile.value)
 const isAdminRole = computed(() => !!profile.value && profile.value.role === 'admin')
 
 const roleLabel = computed(() => (isAdminRole.value ? '管理员' : '普通同学'))
+
+/**
+ * 头像是否为「可加载的图片地址」
+ *
+ * 登录页保存的 avatar 是 emoji（'😋' 之类），把它塞进 <image :src> 会加载失败，
+ * 头像呈现空白。这里只有识别为真实地址时才走 <image>，否则用 <text> 直接渲染 emoji。
+ */
+const avatarIsImage = computed(() => {
+  const a = String((profile.value && profile.value.avatar) || '')
+  return /^(https?:\/\/|cloud:\/\/|wxfile:\/\/|data:image\/|\/|static\/)/.test(a)
+})
 
 /** uid 后 6 位，展示成 ID: xxxxxx */
 const uidText = computed(() => {

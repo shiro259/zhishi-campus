@@ -1,0 +1,60 @@
+{
+  "bsonType": "object",
+  "required": [],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "ID"
+    },
+    "api_key": {
+      "bsonType": "string",
+      "description": "大模型 API Key",
+      "trim": "both"
+    },
+    "provider": {
+      "bsonType": "string",
+      "description": "服务商 qwen/deepseek/kimi/zhipu",
+      "trim": "both"
+    },
+    "model": {
+      "bsonType": "string",
+      "description": "模型名称",
+      "trim": "both"
+    },
+    "base_url": {
+      "bsonType": "string",
+      "description": "API 基础地址",
+      "trim": "both"
+    },
+    "temperature": {
+      "bsonType": "double",
+      "description": "大模型温度，0~2；越大回答越发散，AI 配置页可调",
+      "defaultValue": 0.8
+    },
+    "admin_username": {
+      "bsonType": "string",
+      "description": "管理员账号；也可用云函数环境变量 ADMIN_USERNAME 覆盖"
+    },
+    "admin_password_hash": {
+      "bsonType": "string",
+      "description": "管理员口令的 SHA-256 哈希，绝不存明文；也可用环境变量 ADMIN_PASSWORD 覆盖"
+    },
+    "admin_secret": {
+      "bsonType": "string",
+      "description": "签发管理员 token 用的 HMAC 密钥，首次使用时随机生成；也可用环境变量 ADMIN_SECRET 覆盖"
+    },
+    "create_date": {
+      "bsonType": "timestamp",
+      "description": "创建时间"
+    },
+    "update_date": {
+      "bsonType": "timestamp",
+      "description": "更新时间"
+    }
+  }
+}

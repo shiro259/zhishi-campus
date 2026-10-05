@@ -84,7 +84,7 @@
 import { ref, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { reviewApi } from '@/api/index.js'
-import { formatTime, renderStars, getUserInfo } from '@/common/utils.js'
+import { formatTime, renderStars, ensureAdmin } from '@/common/utils.js'
 
 const filters = [
   { label: '全部', value: '' },
@@ -103,12 +103,11 @@ const stats = ref({ total: 0, pending: 0, passed: 0, rejected: 0 })
 /** 一次拉全量后缓存在内存，切换筛选无需重新请求 */
 const cached = ref([])
 
-onMounted(() => {
-  if (getUserInfo() && getUserInfo().role !== 'admin') {
-    uni.showToast({ title: '需要管理员权限', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 1200)
-    return
-  }
+onMounted(async () => {
+  // 这一页原来的写法是「先判断本机有没有资料，再判断角色」，
+  // 本机没有资料时前半段为 false，整个条件就成了 falsy，于是页面「失效开放」照常渲染。
+  // 统一交给 ensureAdmin 判定：它先看本机标记，再向云端验签一次。
+  if (!(await ensureAdmin())) return
   load()
 })
 
@@ -116,10 +115,11 @@ async function load() {
   loading.value = true
   page.value = 1
   try {
-    // 管理端可以读到全部状态的数据，因此这里分别取待审核与公开评价后合并
+    // 管理端可以读到全部状态的数据，因此这里分别取待审核与公开评价后合并。
+    // list 必须带 all:true，否则只回已通过的，已拒绝的评价永远统计不到（恒为 0）。
     const [pending, passed] = await Promise.all([
       reviewApi.pending({ page: 1, pageSize: 100 }),
-      reviewApi.list({ page: 1, pageSize: 100 })
+      reviewApi.list({ page: 1, pageSize: 100, all: true })
     ])
     const all = [...(pending.list || []), ...(passed.list || [])]
     // 去重（pending 里可能也包含在公开结果中的记录）
