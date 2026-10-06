@@ -1,0 +1,6 @@
+{
+  "name": "shiyu-group",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "多人拼饭：几个人的忌口与口味取交集，算出全员可吃的菜、只有部分人能吃的菜，并给出点菜方案"
+}

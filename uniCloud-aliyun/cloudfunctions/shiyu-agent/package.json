@@ -1,0 +1,6 @@
+{
+  "name": "shiyu-agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "可对话的推荐 Agent：多轮修正（记住已否掉的菜、解析「第一个」这类指代）+ 矛盾需求澄清"
+}

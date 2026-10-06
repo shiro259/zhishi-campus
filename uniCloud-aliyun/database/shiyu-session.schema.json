@@ -1,0 +1,70 @@
+{
+  "bsonType": "object",
+  "required": ["session_id", "pref"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "会话记录 ID，由数据库自动生成",
+      "title": "记录ID"
+    },
+    "session_id": {
+      "bsonType": "string",
+      "description": "客户端生成的会话标识，一次连续对话共用一个；用于把多轮修正串起来",
+      "title": "会话ID"
+    },
+    "pref": {
+      "bsonType": "object",
+      "description": "当前累计生效的偏好：meal_type/taste/allergies/budget/canteen/extra。每轮用户修正都会合并进这里",
+      "title": "累计偏好"
+    },
+    "excluded_ids": {
+      "bsonType": "array",
+      "description": "已被用户否掉的菜品 id 列表（例如用户说「第一个太油了」），后续推荐必须排除",
+      "title": "已排除菜品"
+    },
+    "asked_keys": {
+      "bsonType": "array",
+      "description": "已经问过的澄清问题标识，避免同一问题反复追问用户",
+      "title": "已问过的澄清项"
+    },
+    "turn": {
+      "bsonType": "int",
+      "description": "对话轮次，从 1 开始递增",
+      "title": "对话轮次",
+      "defaultValue": 0
+    },
+    "last_dish_ids": {
+      "bsonType": "array",
+      "description": "上一轮推荐出去的菜品 id，用于理解「第一个」「第二个」这类指代",
+      "title": "上轮推荐"
+    },
+    "history": {
+      "bsonType": "array",
+      "description": "精简对话历史，仅保留用户原话与助手结论，用于生成连贯回复",
+      "title": "对话历史"
+    },
+    "expire_at": {
+      "bsonType": "timestamp",
+      "description": "过期时间，云函数在读取时会清理过期会话，避免集合无限膨胀",
+      "title": "过期时间"
+    },
+    "create_date": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "title": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    },
+    "update_date": {
+      "bsonType": "timestamp",
+      "description": "最后更新时间",
+      "title": "更新时间"
+    }
+  }
+}
