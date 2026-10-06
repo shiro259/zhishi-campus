@@ -72,7 +72,7 @@
               {{ d.status === 1 ? '上架' : '下架' }}
             </text>
           </view>
-          <text class="item-sub">{{ d.canteen }}{{ d.window ? ' · ' + d.window : '' }}</text>
+          <text class="item-sub">{{ formatLocation(d) || '位置待完善' }}</text>
           <view class="item-meta">
             <text class="cat">{{ d.category || '其他' }}</text>
             <text class="price">{{ formatPrice(d.price) }}</text>
@@ -112,7 +112,7 @@
 import { ref } from 'vue'
 import { onLoad, onShow, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import { dishApi } from '@/api/index.js'
-import { formatPrice, getUserInfo } from '@/common/utils.js'
+import { formatPrice, ensureAdmin, formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 
 const PAGE_SIZE = 10
@@ -278,12 +278,10 @@ function confirmRemove(d) {
 
 /* ------------------------------ 生命周期 ------------------------------ */
 
-onLoad(() => {
-  const user = getUserInfo()
-  if (!user || user.role !== 'admin') {
+onLoad(async () => {
+  // 服务端验签把守（凭证过期 / 口令已改都会被拒），不能只看本机 role
+  if (!(await ensureAdmin())) {
     denied = true
-    uni.showToast({ title: '仅管理员可管理菜品', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 1200)
     return
   }
   loadCanteens()

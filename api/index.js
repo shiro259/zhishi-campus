@@ -25,7 +25,8 @@ const CLOUD_FN = {
   recommend: 'shiyu-recommend',
   config: 'shiyu-config',
   seed: 'shiyu-seed',
-  review: 'shiyu-review'
+  review: 'shiyu-review',
+  wechat: 'wechat-login'
 }
 
 /** 本地储存键 */
@@ -738,7 +739,10 @@ export const userApi = {
         fail: (err) => reject(new Error((err && err.errMsg) || '微信登录失败'))
       })
     })
-    const data = await callCloud(CLOUD_FN.config, { action: 'wx-login', code })
+    // openid 换取由 wechat-login 云函数完成（返回 { code:0, data:{ openid } }）；
+    // 之前误发给 shiyu-config 的 'wx-login' action，那边只支持 get/save/test，
+    // 会返回「未知操作」，导致微信一键登录必然失败。
+    const data = await callCloud(CLOUD_FN.wechat, { code })
     if (data && data.openid) {
       uni.setStorageSync('shiyu_uid', data.openid)
     }

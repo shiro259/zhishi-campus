@@ -1,125 +1,119 @@
 <template>
-  <view class="page">
-    <!-- ==================== 顶部吸附区 ==================== -->
-    <view class="sticky">
-      <!-- 搜索：胶囊输入框 + 左侧搜索图标 + 有内容时右侧清空 -->
-      <view class="search-row">
-        <view class="search">
-          <Icon name="search" :size="30" color="#B8B2AA" />
-          <input
-            class="search-input"
-            type="text"
-            v-model="keyword"
-            placeholder="搜索菜品名称"
-            placeholder-class="search-ph"
-            confirm-type="search"
-            @confirm="onSearch"
-          />
-          <view class="search-clear" v-if="keyword" @click="clearKeyword">
-            <Icon name="close" :size="28" color="#8A8580" />
-          </view>
-        </view>
-        <text class="search-btn" @click="onSearch">搜索</text>
+  <view class="dish-list-page">
+    <!-- 搜索栏 -->
+    <view class="search-bar">
+      <view class="search-box">
+        <text class="search-icon">🔍</text>
+        <input
+          class="search-input"
+          type="text"
+          v-model="keyword"
+          placeholder="搜索菜品名称"
+          placeholder-style="color:#999;font-size:28rpx"
+          confirm-type="search"
+          @confirm="onSearch"
+        />
+        <text class="search-clear" v-if="keyword" @click="clearKeyword">✕</text>
       </view>
+      <text class="search-btn" @click="onSearch">搜索</text>
+    </view>
 
-      <!-- 筛选：文字 + 下拉箭头的轻量胶囊（自绘外观包住 picker） -->
-      <view class="filters">
-        <picker
-          class="picker"
-          mode="selector"
-          :range="canteenOptions"
-          :value="canteenIndex"
-          @change="onCanteenChange"
-        >
-          <view class="pill" :class="{ 'pill-on': !!filters.canteen }">
-            <text class="pill-text">{{ filters.canteen || '全部食堂' }}</text>
-            <Icon name="down" :size="24" :color="filters.canteen ? '#FF5A36' : '#B8B2AA'" />
-          </view>
-        </picker>
-
-        <picker
-          class="picker"
-          mode="selector"
-          :range="categoryOptions"
-          :value="categoryIndex"
-          @change="onCategoryChange"
-        >
-          <view class="pill" :class="{ 'pill-on': !!filters.category }">
-            <text class="pill-text">{{ filters.category || '全部分类' }}</text>
-            <Icon name="down" :size="24" :color="filters.category ? '#FF5A36' : '#B8B2AA'" />
-          </view>
-        </picker>
-      </view>
-
-      <!-- 排序：三个纯文字 tab -->
-      <view class="sorts">
-        <view
-          class="sort"
-          v-for="s in sortOptions"
-          :key="s.value"
-          :class="{ 'sort-on': sortMode === s.value }"
-          @click="onSortChange(s.value)"
-        >
-          {{ s.label }}
+    <!-- 筛选栏 -->
+    <view class="filter-bar">
+      <picker
+        class="filter-picker"
+        mode="selector"
+        :range="canteenOptions"
+        :value="canteenIndex"
+        @change="onCanteenChange"
+      >
+        <view class="filter-item" :class="{ active: !!filters.canteen }">
+          <text class="filter-text">{{ filters.canteen || '全部食堂' }}</text>
+          <text class="filter-arrow">▾</text>
         </view>
+      </picker>
+
+      <picker
+        class="filter-picker"
+        mode="selector"
+        :range="categoryOptions"
+        :value="categoryIndex"
+        @change="onCategoryChange"
+      >
+        <view class="filter-item" :class="{ active: !!filters.category }">
+          <text class="filter-text">{{ filters.category || '全部分类' }}</text>
+          <text class="filter-arrow">▾</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 排序切换 -->
+    <view class="sort-bar">
+      <view
+        class="sort-item"
+        v-for="s in sortOptions"
+        :key="s.value"
+        :class="{ active: sortMode === s.value }"
+        @click="onSortChange(s.value)"
+      >
+        {{ s.label }}
       </view>
     </view>
 
     <!-- 首次加载中 -->
-    <view class="state" v-if="firstLoading">
-      <view class="spinner" />
-      <text class="state-main">正在加载菜单…</text>
+    <view class="state-box" v-if="firstLoading">
+      <text class="state-icon">⏳</text>
+      <text class="state-text">加载中...</text>
     </view>
 
     <!-- 请求失败 -->
-    <view class="state" v-else-if="loadError && !list.length">
-      <Icon name="warning" :size="72" color="#D8D3CB" />
-      <text class="state-main">{{ loadError }}</text>
-      <text class="state-sub">检查一下网络，或稍后再试</text>
-      <view class="btn-ghost" @click="retry">重新加载</view>
+    <view class="state-box" v-else-if="loadError && !list.length">
+      <text class="state-icon">😵</text>
+      <text class="state-text">{{ loadError }}</text>
+      <view class="state-btn" @click="retry">重新加载</view>
     </view>
 
     <!-- 空态 -->
-    <view class="state" v-else-if="!list.length">
-      <Icon name="search" :size="72" color="#D8D3CB" />
-      <text class="state-main">没有找到符合条件的菜品</text>
-      <text class="state-sub">换个关键词，或者把筛选条件放宽一点</text>
-      <view class="btn-ghost" @click="resetFilter">重置筛选条件</view>
+    <view class="state-box" v-else-if="!list.length">
+      <text class="state-icon">🍚</text>
+      <text class="state-text">暂无符合条件的菜品，试试换个筛选条件</text>
+      <view class="state-btn" @click="resetFilter">重置筛选条件</view>
     </view>
 
-    <!-- 菜品网格 -->
-    <view v-else>
-      <text class="count">共 {{ total }} 道</text>
+    <!-- 菜品列表 -->
+    <view class="dish-list" v-else>
+      <view class="list-count">
+        <text>共 {{ total }} 道菜品</text>
+      </view>
 
-      <view class="grid">
-        <view class="card" v-for="d in list" :key="d.id" @click="goDetail(d.id)">
-          <view class="card-img">
-            <DishImage :dish="d" :size="220" :radius="0" />
-            <text class="badge" v-if="d.is_new">NEW</text>
+      <view class="dish-card" v-for="d in list" :key="d.id" @click="goDetail(d.id)">
+        <view class="dish-img-wrap">
+          <DishImage :dish="d" :size="150" :radius="16" />
+        </view>
+
+        <view class="dish-main">
+          <view class="dish-title-row">
+            <text class="dish-name">{{ d.name }}</text>
+            <text class="dish-new" v-if="d.is_new">NEW</text>
           </view>
 
-          <view class="card-body">
-            <text class="card-name">{{ d.name }}</text>
-            <text class="card-loc">{{ d.canteen || '未知食堂' }} · {{ d.window || '未知窗口' }}</text>
+          <text class="dish-loc">{{ formatLocation(d) || '位置待完善' }}</text>
 
-            <view class="card-foot">
-              <text class="price">{{ money(d.price) }}</text>
-              <view class="score">
-                <Icon name="star" :size="24" color="#FF5A36" />
-                <text class="score-num">{{ ratingText(d.rating) }}</text>
-              </view>
-            </view>
+          <view class="dish-tags" v-if="d.tags && d.tags.length">
+            <text class="tag" v-for="(t, i) in d.tags.slice(0, 3)" :key="i">{{ t }}</text>
+          </view>
+
+          <view class="dish-bottom">
+            <text class="dish-price">{{ money(d.price) }}</text>
+            <text class="dish-rating">⭐ {{ ratingText(d.rating) }}</text>
           </view>
         </view>
       </view>
 
-      <view class="footer">
-        <view class="footer-loading" v-if="loading">
-          <view class="spinner spinner-sm" />
-          <text class="footer-text">加载中…</text>
-        </view>
-        <text class="footer-text" v-else-if="hasMore">上拉加载更多</text>
-        <text class="footer-text" v-else>没有更多菜品了</text>
+      <view class="list-footer">
+        <text v-if="loading">加载中...</text>
+        <text v-else-if="hasMore">上拉加载更多</text>
+        <text v-else>没有更多菜品了</text>
       </view>
     </view>
   </view>
@@ -129,14 +123,15 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import { dishApi } from '@/api/index.js'
+import { formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 
 const PAGE_SIZE = 10
 
 const sortOptions = [
   { value: 'default', label: '默认' },
-  { value: 'rating', label: '评分' },
-  { value: 'price', label: '价格' }
+  { value: 'rating', label: '评分优先' },
+  { value: 'price', label: '价格从低到高' }
 ]
 
 const keyword = ref('')
@@ -405,303 +400,254 @@ async function safeCall(fn, fallback) {
 }
 </script>
 
-<style lang="scss" scoped>
-@import '@/common/tokens.scss';
-.page {
+<style scoped>
+.dish-list-page {
   min-height: 100vh;
-  background: $canvas;
-  padding: $gap-page;
-}
-
-/* ==================== 顶部吸附区 ==================== */
-.sticky {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: $canvas;
-  padding-bottom: $gap;
+  background: #f5f5f5;
+  padding-bottom: 30rpx;
 }
 
 /* 搜索 */
-.search-row {
+.search-bar {
   display: flex;
   align-items: center;
+  padding: 20rpx 24rpx;
+  background: #fff;
 }
 
-.search {
+.search-box {
   flex: 1;
   display: flex;
   align-items: center;
-  height: $h-input;
-  padding: 0 $gap-card;
-  background: $surface-sunken;
-  border-radius: $radius-pill;
-  box-sizing: border-box;
+  height: 72rpx;
+  background: #f5f5f5;
+  border-radius: 36rpx;
+  padding: 0 24rpx;
+}
+
+.search-icon {
+  font-size: 26rpx;
+  margin-right: 12rpx;
 }
 
 .search-input {
   flex: 1;
-  height: $h-input;
-  margin-left: $gap-sm;
-  font-size: $fs-body;
-  color: $ink;
-}
-
-.search-ph {
-  color: $gray4;
-  font-size: $fs-body;
+  height: 72rpx;
+  font-size: 28rpx;
+  color: #333;
 }
 
 .search-clear {
-  display: flex;
-  align-items: center;
-  padding-left: $gap-sm;
+  font-size: 26rpx;
+  color: #bbb;
+  padding: 0 4rpx;
 }
 
 .search-btn {
-  margin-left: $gap;
-  font-size: $fs-sub;
-  color: $brand;
-  font-weight: $fw-medium;
+  font-size: 28rpx;
+  color: #FF6B35;
+  font-weight: 500;
+  padding-left: 20rpx;
 }
 
-/* 筛选胶囊 */
-.filters {
+/* 筛选 */
+.filter-bar {
+  display: flex;
+  gap: 20rpx;
+  padding: 0 24rpx 20rpx;
+  background: #fff;
+}
+
+.filter-picker {
+  flex: 1;
+}
+
+.filter-item {
   display: flex;
   align-items: center;
-  margin-top: $gap;
+  justify-content: space-between;
+  height: 64rpx;
+  padding: 0 20rpx;
+  background: #f5f5f5;
+  border-radius: 16rpx;
 }
 
-.picker {
-  flex-shrink: 0;
+.filter-item.active {
+  background: #FFF0EB;
 }
 
-.picker + .picker {
-  margin-left: $gap-sm;
-}
-
-.pill {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 0 24rpx;
-  height: 56rpx;
-  line-height: 56rpx;
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-pill;
-  font-size: $fs-cap;
-  color: $gray7;
-  box-sizing: border-box;
-}
-
-.pill-text {
-  max-width: 260rpx;
-  line-height: 56rpx;
+.filter-text {
+  font-size: 26rpx;
+  color: #666;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.pill-on {
-  background: $brand-soft;
-  border-color: $brand-line;
-  color: $brand;
-  font-weight: $fw-medium;
+.filter-item.active .filter-text {
+  color: #FF6B35;
+  font-weight: 500;
+}
+
+.filter-arrow {
+  font-size: 22rpx;
+  color: #bbb;
+  margin-left: 8rpx;
 }
 
 /* 排序 */
-.sorts {
+.sort-bar {
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  background: #fff;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.sort-item {
+  font-size: 24rpx;
+  color: #666;
+  padding: 8rpx 22rpx;
+  background: #f5f5f5;
+  border-radius: 24rpx;
+}
+
+.sort-item.active {
+  color: #fff;
+  background: #FF6B35;
+}
+
+/* 列表 */
+.dish-list {
+  padding: 20rpx 24rpx 0;
+}
+
+.list-count {
+  font-size: 24rpx;
+  color: #999;
+  padding: 0 6rpx 16rpx;
+}
+
+.dish-card {
+  display: flex;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.dish-img-wrap {
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.dish-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dish-title-row {
   display: flex;
   align-items: center;
-  margin-top: $gap;
 }
 
-.sort {
-  margin-right: $gap-lg;
-  font-size: $fs-sub;
-  color: $gray6;
+.dish-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.sort-on {
-  color: $ink;
-  font-weight: $fw-bold;
+.dish-new {
+  margin-left: 12rpx;
+  font-size: 18rpx;
+  color: #fff;
+  background: #FF6B35;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  flex-shrink: 0;
 }
 
-/* ==================== 结果数 ==================== */
-.count {
-  display: block;
-  margin-bottom: $gap;
-  font-size: $fs-cap;
-  color: $gray6;
+.dish-loc {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 8rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* ==================== 两列卡片网格 ==================== */
-.grid {
+.dish-tags {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  gap: 8rpx;
+  margin-top: 10rpx;
 }
 
-.card {
-  width: 48.5%;
-  margin-bottom: $gap;
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-card;
-  box-shadow: $shadow-card;
-  overflow: hidden;
-  box-sizing: border-box;
+.tag {
+  font-size: 20rpx;
+  color: #FF6B35;
+  background: #FFF0EB;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
 }
 
-.card-img {
-  position: relative;
-}
-
-.card-img :deep(.dish-image) {
-  width: 100% !important;
-  height: 220rpx !important;
-}
-
-.badge {
-  position: absolute;
-  top: 12rpx;
-  left: 12rpx;
-  height: 36rpx;
-  line-height: 36rpx;
-  padding: 0 14rpx;
-  background: $brand;
-  color: #fff;
-  font-size: $fs-tag;
-  border-radius: $radius-pill;
-}
-
-.card-body {
-  padding: $gap-card;
-}
-
-.card-name {
-  display: block;
-  font-size: $fs-card;
-  font-weight: $fw-bold;
-  color: $ink;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.card-loc {
-  display: block;
-  margin-top: 8rpx;
-  font-size: $fs-cap;
-  color: $gray6;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.card-foot {
+.dish-bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: $gap-sm;
+  margin-top: auto;
+  padding-top: 12rpx;
 }
 
-.price {
-  font-size: $fs-card;
-  font-weight: $fw-bold;
-  color: $brand;
+.dish-price {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #FF6B35;
 }
 
-.score {
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
+.dish-rating {
+  font-size: 24rpx;
+  color: #FF9800;
 }
 
-.score-num {
-  font-size: $fs-cap;
-  color: $gray6;
-}
-
-/* ==================== 列表尾部 ==================== */
-.footer {
-  padding: $gap 0 40rpx;
+.list-footer {
   text-align: center;
+  padding: 20rpx 0 40rpx;
+  font-size: 24rpx;
+  color: #999;
 }
 
-.footer-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.footer-text {
-  font-size: $fs-cap;
-  color: $gray6;
-}
-
-.footer-loading .footer-text {
-  margin-left: 10rpx;
-}
-
-/* ==================== 加载 / 空态 ==================== */
-.spinner {
-  width: 44rpx;
-  height: 44rpx;
-  border: 4rpx solid $line;
-  border-top-color: $brand;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.spinner-sm {
-  width: 28rpx;
-  height: 28rpx;
-  border-width: 3rpx;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.state {
+/* 状态 */
+.state-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 140rpx $gap 0;
+  padding: 140rpx 60rpx;
 }
 
-.state-main {
-  margin-top: $gap;
-  font-size: $fs-body;
-  font-weight: $fw-medium;
-  color: $ink;
-  text-align: center;
+.state-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
 }
 
-.state-sub {
-  margin-top: $gap-sm;
-  font-size: $fs-cap;
-  color: $gray6;
+.state-text {
+  font-size: 28rpx;
+  color: #999;
   text-align: center;
   line-height: 1.6;
 }
 
-.btn-ghost {
-  margin-top: $gap-lg;
-  height: $h-btn-sm;
-  padding: 0 40rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-pill;
-  font-size: $fs-sub;
-  color: $gray7;
-  box-sizing: border-box;
+.state-btn {
+  margin-top: 30rpx;
+  padding: 14rpx 44rpx;
+  font-size: 26rpx;
+  color: #FF6B35;
+  border: 2rpx solid #FF6B35;
+  border-radius: 32rpx;
 }
 </style>

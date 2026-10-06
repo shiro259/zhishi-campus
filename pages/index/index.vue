@@ -1,86 +1,87 @@
 <template>
-  <view class="page">
-    <!-- ==================== 自定义导航 ==================== -->
-    <view class="nav" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-inner">
-        <view class="nav-left">
-          <text class="nav-greet">{{ greeting }}</text>
-          <text class="nav-name">{{ nickname }}</text>
+  <view class="home">
+    <!-- ==================== 顶部问候区 ==================== -->
+    <view class="hero">
+      <view class="hero-row">
+        <view class="hero-text">
+          <text class="hero-greet">{{ greeting }}，{{ nickname }} 👋</text>
+          <text class="hero-sub">现在是{{ mealType }}时间 · 让 AI 帮你决定吃什么</text>
         </view>
-        <view class="nav-right" @click="goUser">
-          <text class="nav-avatar">{{ avatarText }}</text>
-        </view>
+        <text class="hero-emoji">🍜</text>
       </view>
 
-      <!-- 搜索入口 -->
-      <view class="search" @click="goSearch">
-        <Icon name="search" :size="30" color="#B8B2AA" />
-        <text class="search-text">搜索菜品、窗口</text>
+      <!-- 搜索入口：菜品列表是 tabBar 页，用 switchTab -->
+      <view class="search-box" @click="goSearch">
+        <text class="search-icon">🔍</text>
+        <text class="search-placeholder">搜索菜品、食堂…</text>
       </view>
     </view>
 
     <!-- ==================== AI 推荐主入口 ==================== -->
-    <view class="ai-card" @click="goRecommend">
-      <view class="ai-main">
-        <view class="ai-badge">
-          <Icon name="sparkle" :size="26" color="#FF5A36" />
-          <text class="ai-badge-text">AI 智能推荐</text>
+    <view class="ai-card">
+      <view class="ai-row">
+        <view class="ai-text">
+          <text class="ai-title">不知道吃啥？交给 AI</text>
+          <text class="ai-desc">说口味 · 报预算 · 忌口自动规避</text>
         </view>
-        <text class="ai-title">不知道吃啥？</text>
-        <text class="ai-sub">说口味 · 报预算 · 忌口自动规避</text>
+        <text class="ai-robot">🤖</text>
       </view>
-      <view class="ai-go">
-        <Icon name="right" :size="34" color="#FFFFFF" />
+
+      <view class="ai-btn" @click="goRecommend">
+        <text class="ai-btn-text">马上推荐</text>
+        <text class="ai-btn-arrow">›</text>
+      </view>
+
+      <!-- 快捷口味：点一下即预置偏好并跳到推荐页 -->
+      <view class="quick-area" v-if="quickTastes.length">
+        <text class="quick-tip">快捷口味（点一下直接推荐）</text>
+        <view class="quick-tags">
+          <text
+            class="quick-tag"
+            v-for="t in quickTastes"
+            :key="t.value"
+            @click="pickTaste(t.value)"
+          >{{ t.label }}</text>
+        </view>
       </view>
     </view>
 
-    <!-- 口味快捷入口：带着偏好直接进推荐页 -->
-    <scroll-view class="quick-scroll" scroll-x :show-scrollbar="false">
-      <view
-        class="quick-chip"
-        v-for="t in quickTastes"
-        :key="t"
-        @click="goRecommendWithTaste(t)"
-      >{{ t }}</view>
-    </scroll-view>
-
-    <!-- ==================== 食堂入口 ==================== -->
+    <!-- ==================== 食堂快捷入口 ==================== -->
     <view class="section" v-if="canteens.length">
       <view class="section-head">
-        <text class="section-title">食堂</text>
+        <text class="section-title">🏪 食堂直达</text>
       </view>
-      <view class="canteen-list">
+      <scroll-view class="h-scroll" scroll-x>
         <view
-          class="canteen"
+          class="canteen-item"
           v-for="c in canteens"
           :key="c"
           @click="goCanteen(c)"
         >
+          <text class="canteen-icon">🏫</text>
           <text class="canteen-name">{{ c }}</text>
-          <Icon name="right" :size="26" color="#B8B2AA" />
         </view>
-      </view>
+      </scroll-view>
     </view>
 
     <!-- ==================== 今日热门 ==================== -->
     <view class="section" v-if="hotList.length">
       <view class="section-head">
-        <text class="section-title">今日热门</text>
-        <text class="section-more" @click="goSearch">全部菜单</text>
+        <text class="section-title">🔥 今日热门</text>
+        <text class="section-more" @click="goSearch">查看更多 ›</text>
       </view>
-      <scroll-view class="hot-scroll" scroll-x :show-scrollbar="false">
-        <view class="hot-item" v-for="d in hotList" :key="dishKey(d)" @click="goDetail(d)">
-          <view class="hot-img">
-            <DishImage :dish="d" :size="240" :radius="20" />
-            <view class="hot-tag" v-if="d.is_new">新品</view>
-          </view>
+      <scroll-view class="h-scroll" scroll-x>
+        <view
+          class="hot-card"
+          v-for="d in hotList"
+          :key="dishKey(d)"
+          @click="goDetail(d)"
+        >
+              <DishImage class="hot-img" :dish="d" :size="220" :radius="14" />
           <text class="hot-name">{{ d.name }}</text>
           <view class="hot-meta">
-            <text class="hot-price">¥{{ money(d.price) }}</text>
-            <view class="hot-rating">
-              <Icon name="star" :size="22" color="#FF5A36" />
-              <text class="hot-rating-text">{{ rating(d.rating) }}</text>
-            </view>
+            <text class="hot-rating">⭐ {{ formatRating(d.rating) }}</text>
+            <text class="hot-price">{{ formatPrice(d.price) }}</text>
           </view>
         </view>
       </scroll-view>
@@ -89,24 +90,27 @@
     <!-- ==================== 高分红榜 ==================== -->
     <view class="section" v-if="goodList.length">
       <view class="section-head">
-        <text class="section-title">高分红榜</text>
+        <text class="section-title">🏆 高分红榜</text>
       </view>
-      <view class="goods">
+      <view class="rank-list">
         <view
-          class="good"
-          v-for="(d, i) in goodList"
+          class="rank-item"
+          v-for="(d, idx) in goodList"
           :key="dishKey(d)"
           @click="goDetail(d)"
         >
-          <text class="good-rank" :class="{ 'good-rank-top': i < 3 }">{{ i + 1 }}</text>
-          <DishImage :dish="d" :size="96" :radius="16" />
-          <view class="good-body">
-            <text class="good-name">{{ d.name }}</text>
-            <text class="good-loc">{{ d.canteen }} · {{ d.window }}</text>
+          <text class="rank-num" :class="{ 'rank-top': idx < 3 }">{{ idx + 1 }}</text>
+          <DishImage class="rank-img" :dish="d" :size="100" :radius="12" />
+          <view class="rank-info">
+            <text class="rank-name">{{ d.name }}</text>
+            <text class="rank-loc">{{ formatLocation(d) || '位置待完善' }}</text>
+            <view class="rank-tags" v-if="d.tags && d.tags.length">
+              <text class="tag" v-for="t in d.tags.slice(0, 3)" :key="t">{{ t }}</text>
+            </view>
           </view>
-          <view class="good-right">
-            <text class="good-price">¥{{ money(d.price) }}</text>
-            <text class="good-score">{{ rating(d.rating) }} 分</text>
+          <view class="rank-right">
+            <text class="rank-price">{{ formatPrice(d.price) }}</text>
+            <text class="rank-score">{{ formatRating(d.rating) }} 分</text>
           </view>
         </view>
       </view>
@@ -115,109 +119,123 @@
     <!-- ==================== 新品尝鲜 ==================== -->
     <view class="section" v-if="newList.length">
       <view class="section-head">
-        <text class="section-title">新品尝鲜</text>
+        <text class="section-title">✨ 新品尝鲜</text>
       </view>
       <view class="new-grid">
-        <view class="new-item" v-for="d in newList" :key="dishKey(d)" @click="goDetail(d)">
-          <view class="new-img">
-            <DishImage :dish="d" :size="200" :radius="20" />
-            <view class="new-badge">NEW</view>
+        <view
+          class="new-item"
+          v-for="d in newList"
+          :key="dishKey(d)"
+          @click="goDetail(d)"
+        >
+          <view class="new-img-wrap">
+            <DishImage :dish="d" :size="200" :radius="14" />
+            <text class="new-badge">NEW</text>
           </view>
           <text class="new-name">{{ d.name }}</text>
-          <text class="new-price">¥{{ money(d.price) }}</text>
+          <text class="new-price">{{ formatPrice(d.price) }}</text>
         </view>
       </view>
     </view>
 
     <!-- ==================== 加载 / 空态 ==================== -->
-    <view class="state" v-if="loading && !hasData">
-      <view class="spinner" />
+    <view class="state-box" v-if="loading && !hasData">
       <text class="state-text">正在加载食堂菜单…</text>
     </view>
-
-    <view class="state" v-else-if="!loading && !hasData">
-      <Icon name="bowl" :size="72" color="#D8D3CB" />
-      <text class="state-title">暂时没有菜品数据</text>
-      <text class="state-sub">下拉刷新试试，或到管理后台同步菜品库</text>
-      <view class="state-btn" @click="loadData">重新加载</view>
+    <view class="state-box" v-else-if="!loading && !hasData">
+      <text class="state-emoji">🍚</text>
+      <text class="state-text">暂时没有拿到菜品数据</text>
+      <text class="state-retry" @click="loadData">轻触重试</text>
     </view>
 
-    <view class="source" v-if="localEngine && hasData">
-      <Icon name="info" :size="24" color="#B8B2AA" />
-      <text class="source-text">当前为本地离线数据，配置云服务后可同步食堂最新菜单</text>
+    <!-- ==================== 数据来源提示 ==================== -->
+    <view class="data-hint" v-if="localEngine">
+      <text class="data-hint-text">当前为本地离线数据，配置云服务后可同步食堂最新菜单</text>
     </view>
   </view>
 </template>
 
 <script setup>
 /**
- * 首页
+ * 首页（食遇校园）
  *
- * 定制导航栏（navigationStyle: custom），把问候语与搜索整合进头部，
- * 主视觉只保留一个 AI 推荐入口——这是本产品的核心价值，不做功能平铺。
+ * 定位：解决「每天不知道吃啥」的第一入口，主推 AI 智能推荐。
+ *
+ * 数据链路：页面 → @/api/index.js → uniCloud 云函数（shiyu-dish）
+ *          → 云端不可用时自动降级到本地数据集，接口返回 engine='local' 时底部给出提示。
+ * 注意：首页不做登录拦截，未登录也完整可用（昵称降级为「同学」）。
  */
 import { ref, computed } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { dishApi, recommendApi, userApi } from '@/api/index.js'
-import { MEAL_TYPES, TASTE_OPTIONS } from '@/common/constants.js'
+import { MEAL_TYPES, TASTE_OPTIONS, EMOJI_MAP } from '@/common/constants.js'
+import { formatPrice, formatLocation } from '@/common/utils.js'
+import DishImage from '@/components/DishImage/DishImage.vue'
 
-const statusBarHeight = ref(20)
+/* -------------------------------- 页面状态 -------------------------------- */
+
+const hour = ref(new Date().getHours())
 const nickname = ref('同学')
-const avatarText = ref('同')
+const canteens = ref([])
 const hotList = ref([])
 const goodList = ref([])
 const newList = ref([])
-const canteens = ref([])
 const loading = ref(false)
+/** 本次加载中任意一次接口走了本地兜底 */
 const localEngine = ref(false)
 
-const quickTastes = TASTE_OPTIONS.slice(0, 6)
+/* -------------------------------- 计算属性 -------------------------------- */
 
-const hasData = computed(
-  () => hotList.value.length || goodList.value.length || newList.value.length || canteens.value.length
-)
-
-/** 按时段问候，比"早上好"更贴合"这顿吃什么"的场景 */
+/** 问候语：按时段切换 */
 const greeting = computed(() => {
-  const h = new Date().getHours()
-  if (h < 6) return '夜深了'
+  const h = hour.value
   if (h < 11) return '早上好'
   if (h < 14) return '中午好'
   if (h < 18) return '下午好'
   return '晚上好'
 })
 
-function currentMealType() {
-  const h = new Date().getHours()
-  if (h < 10) return '早餐'
-  if (h < 15) return '午餐'
-  if (h < 21) return '晚餐'
-  return '夜宵'
-}
+/** 当前用餐时段：优先取 constants 里的 MEAL_TYPES，取不到再用兜底文案 */
+const mealType = computed(() => {
+  const h = hour.value
+  let want = '午餐'
+  if (h < 10) want = '早餐'
+  else if (h < 14) want = '午餐'
+  else if (h < 21) want = '晚餐'
+  else want = '夜宵'
+  const list = Array.isArray(MEAL_TYPES) ? MEAL_TYPES : []
+  const hit = list.find((m) => String(m).indexOf(want) > -1)
+  return hit || want
+})
 
-/* -------------------------------- 数据 -------------------------------- */
+/** 快捷口味标签：取 TASTE_OPTIONS 前 6 个 */
+const quickTastes = computed(() => {
+  const list = Array.isArray(TASTE_OPTIONS) ? TASTE_OPTIONS : []
+  return list.slice(0, 6)
+})
+
+/** 是否已经拿到任意区块数据（用于空态判断） */
+const hasData = computed(
+  () =>
+    canteens.value.length > 0 ||
+    hotList.value.length > 0 ||
+    goodList.value.length > 0 ||
+    newList.value.length > 0
+)
+
+/* -------------------------------- 数据加载 -------------------------------- */
 
 async function loadData() {
   if (loading.value) return
   loading.value = true
+  hour.value = new Date().getHours()
 
-  // 状态栏高度：小程序/App 需要给自定义导航让位
-  try {
-    const info = uni.getSystemInfoSync()
-    if (info && info.statusBarHeight) statusBarHeight.value = info.statusBarHeight
-  } catch (e) {
-    // 使用默认值
-  }
-
-  // 本地身份
+  // 昵称（本地资料，未登录时降级为「同学」）
   try {
     const profile = userApi.getProfile()
-    if (profile && profile.nickname) {
-      nickname.value = profile.nickname
-      avatarText.value = String(profile.nickname).slice(0, 1)
-    }
+    nickname.value = (profile && profile.nickname) || '同学'
   } catch (e) {
-    // 忽略
+    nickname.value = '同学'
   }
 
   try {
@@ -243,14 +261,14 @@ async function loadData() {
     canteens.value = (canteenRes && canteenRes.list) || []
     localEngine.value = usedLocal
   } catch (e) {
-    if (!hasData.value) {
-      uni.showToast({ title: '数据加载失败，请稍后重试', icon: 'none' })
-    }
+    // 整体失败：提示但不白屏，保留已有内容
+    uni.showToast({ title: '数据加载失败，请稍后重试', icon: 'none' })
   } finally {
     loading.value = false
   }
 }
 
+// 首页是 tabBar 页，onShow 同时覆盖首次进入与从推荐页返回
 onShow(() => {
   loadData()
 })
@@ -259,20 +277,7 @@ onPullDownRefresh(() => {
   loadData().finally(() => uni.stopPullDownRefresh())
 })
 
-/* -------------------------------- 跳转 -------------------------------- */
-
-function dishKey(d) {
-  return (d && (d.id || d._id)) || ''
-}
-
-function money(v) {
-  return Number(v || 0).toFixed(1)
-}
-
-function rating(v) {
-  const n = Number(v)
-  return Number.isFinite(n) ? n.toFixed(1) : '—'
-}
+/* -------------------------------- 交互逻辑 -------------------------------- */
 
 function goSearch() {
   uni.switchTab({ url: '/pages/dish-list/dish-list' })
@@ -282,37 +287,61 @@ function goRecommend() {
   uni.switchTab({ url: '/pages/recommend/recommend' })
 }
 
-function goUser() {
-  uni.switchTab({ url: '/pages/user/user' })
-}
-
-/** 点口味标签：把偏好写进本地档案后进入推荐页，用户少点几步 */
-function goRecommendWithTaste(taste) {
-  const saved = recommendApi.getSavedPref() || {}
-  recommendApi.savePref({
-    meal_type: saved.meal_type || currentMealType(),
-    taste: [taste],
-    allergies: saved.allergies || [],
-    budget: saved.budget || null,
-    canteen: saved.canteen || '',
-    extra: saved.extra || ''
-  })
+/**
+ * 点快捷口味：先把偏好写进本地档案，再用一次性 key 交给推荐页回填，
+ * 然后切到推荐页 —— 推荐页是 tabBar 页，switchTab 不能带 query，
+ * 只能靠本地暂存传递，由推荐页 onShow 读取后立即删除并填进输入框。
+ */
+function pickTaste(tag) {
+  try {
+    const saved = recommendApi.getSavedPref() || {}
+    const pref = {
+      meal_type: saved.meal_type || mealType.value,
+      taste: [tag],
+      allergies: Array.isArray(saved.allergies) ? saved.allergies : [],
+      budget: saved.budget || null,
+      canteen: saved.canteen || '',
+      extra: saved.extra || ''
+    }
+    recommendApi.savePref(pref)
+    uni.setStorageSync('shiyu_pending_pref', pref)
+  } catch (e) {
+    // 偏好写入失败不阻塞跳转
+  }
   uni.switchTab({ url: '/pages/recommend/recommend' })
 }
 
 /**
- * 食堂入口
- * 菜单页是 tabBar 页，switchTab 不支持携带参数，因此先暂存筛选条件再跳转，
- * 由菜单页在 onShow 中读取（navigateTo 跳 tabBar 页会静默失败，不能依赖）。
+ * 点食堂进入菜品列表
+ *
+ * 菜品列表是 tabBar 页：微信小程序/App 端 switchTab 不支持携带 query 参数，
+ * 且 navigateTo 跳 tabBar 页会静默失败（fail 回调不触发），因此统一走
+ * 「本机暂存筛选条件 + switchTab」，由菜品列表页在 onShow 中读取并消费。
  */
 function goCanteen(name) {
   if (!name) return
   try {
     uni.setStorageSync('shiyu_pending_canteen', name)
   } catch (e) {
-    // 忽略
+    // 存储不可用时至少保证能跳过去
   }
   uni.switchTab({ url: '/pages/dish-list/dish-list' })
+}
+
+function dishKey(d) {
+  return (d && (d.id || d._id)) || (d && d.name) || ''
+}
+
+function dishEmoji(d) {
+  if (d && d.emoji) return d.emoji
+  // 菜品没有真实图片：优先 emoji 字段，其次按分类查 EMOJI_MAP，最后兜底
+  const map = EMOJI_MAP || {}
+  return (d && map[d.category]) || '🍽️'
+}
+
+function formatRating(r) {
+  const n = Number(r)
+  return Number.isFinite(n) ? n.toFixed(1) : '—'
 }
 
 function goDetail(d) {
@@ -322,455 +351,436 @@ function goDetail(d) {
 }
 </script>
 
-<style lang="scss" scoped>
-@import '@/common/tokens.scss';
-.page {
+<style scoped>
+.home {
   min-height: 100vh;
-  background: $canvas;
-  padding-bottom: 60rpx;
+  background: #f5f5f5;
+  padding-bottom: 40rpx;
 }
 
-/* ==================== 导航 ==================== */
-.nav {
-  background: $surface;
-  padding: 0 $gap-page 24rpx;
+/* -------------------- 顶部问候区 -------------------- */
+
+.hero {
+  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+  padding: 36rpx 30rpx 30rpx;
 }
 
-.nav-inner {
+.hero-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 96rpx;
 }
 
-.nav-greet {
-  font-size: $fs-cap;
-  color: $gray6;
-}
-
-.nav-name {
-  display: block;
-  margin-top: 2rpx;
-  font-size: $fs-title;
-  font-weight: $fw-bold;
-  color: $ink;
-  letter-spacing: -0.6rpx;
-}
-
-.nav-avatar {
-  width: 76rpx;
-  height: 76rpx;
-  border-radius: 50%;
-  background: $brand-soft;
-  color: $brand;
-  font-size: $fs-card;
-  font-weight: $fw-bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.search {
-  display: flex;
-  align-items: center;
-  height: 76rpx;
-  padding: 0 26rpx;
-  margin-top: 20rpx;
-  background: $surface-sunken;
-  border-radius: $radius-pill;
-}
-
-.search-text {
-  margin-left: 14rpx;
-  font-size: $fs-sub;
-  color: $gray4;
-}
-
-/* ==================== AI 主入口 ==================== */
-.ai-card {
-  margin: $gap-lg $gap-page 0;
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-lg;
-  padding: 36rpx $gap-card;
-  display: flex;
-  align-items: center;
-  box-shadow: $shadow-card;
-}
-
-.ai-main {
+.hero-text {
   flex: 1;
 }
 
-.ai-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6rpx 16rpx;
-  background: $brand-soft;
-  border-radius: $radius-pill;
+.hero-greet {
+  font-size: 42rpx;
+  font-weight: bold;
+  color: #fff;
+  display: block;
 }
 
-.ai-badge-text {
-  margin-left: 6rpx;
-  font-size: $fs-tag;
-  color: $brand;
-  font-weight: $fw-medium;
+.hero-sub {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 10rpx;
+  display: block;
+}
+
+.hero-emoji {
+  font-size: 64rpx;
+  margin-left: 20rpx;
+}
+
+.search-box {
+  margin-top: 26rpx;
+  height: 72rpx;
+  background: #fff;
+  border-radius: 36rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 30rpx;
+}
+
+.search-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.search-placeholder {
+  font-size: 28rpx;
+  color: #bbb;
+}
+
+/* -------------------- AI 推荐主入口 -------------------- */
+
+.ai-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(255, 107, 53, 0.12);
+}
+
+.ai-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-text {
+  flex: 1;
 }
 
 .ai-title {
+  font-size: 38rpx;
+  font-weight: bold;
+  color: #333;
   display: block;
-  margin-top: 20rpx;
-  font-size: 42rpx;
-  font-weight: $fw-bold;
-  color: $ink;
-  letter-spacing: -0.8rpx;
 }
 
-.ai-sub {
+.ai-desc {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 12rpx;
   display: block;
-  margin-top: 8rpx;
-  font-size: $fs-cap;
-  color: $gray6;
 }
 
-.ai-go {
-  width: 88rpx;
+.ai-robot {
+  font-size: 64rpx;
+  margin-left: 20rpx;
+}
+
+.ai-btn {
+  margin-top: 28rpx;
   height: 88rpx;
-  border-radius: 50%;
-  background: $brand;
+  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+  border-radius: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: $shadow-brand;
 }
 
-/* ==================== 口味快捷 ==================== */
-.quick-scroll {
-  white-space: nowrap;
-  padding: 0 $gap-page;
-  margin-top: $gap-lg;
+.ai-btn-text {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #fff;
 }
 
-.quick-chip {
-  display: inline-block;
-  height: 64rpx;
-  line-height: 64rpx;
-  padding: 0 30rpx;
-  margin-right: 16rpx;
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-pill;
-  font-size: $fs-sub;
-  color: $gray7;
+.ai-btn-arrow {
+  font-size: 36rpx;
+  color: #fff;
+  margin-left: 10rpx;
 }
 
-/* ==================== 区块通用 ==================== */
+.quick-area {
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f5f5f5;
+}
+
+.quick-tip {
+  font-size: 22rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.quick-tags {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.quick-tag {
+  font-size: 24rpx;
+  color: #FF6B35;
+  background: #FFF0EB;
+  border-radius: 24rpx;
+  padding: 8rpx 24rpx;
+  margin: 0 16rpx 16rpx 0;
+}
+
+/* -------------------- 通用区块 -------------------- */
+
 .section {
-  margin: $gap-lg $gap-page 0;
+  margin: 24rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
 }
 
 .section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: $gap;
+  margin-bottom: 22rpx;
 }
 
 .section-title {
-  font-size: $fs-card;
-  font-weight: $fw-bold;
-  color: $ink;
-  letter-spacing: -0.4rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
 }
 
 .section-more {
-  font-size: $fs-cap;
-  color: $gray6;
+  font-size: 24rpx;
+  color: #FF6B35;
 }
 
-/* ==================== 食堂 ==================== */
-.canteen-list {
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-card;
-  overflow: hidden;
-  box-shadow: $shadow-card;
+.h-scroll {
+  white-space: nowrap;
+  width: 100%;
 }
 
-.canteen {
-  display: flex;
+/* 菜品图片：无图时由 DishImage 组件自动回退为 emoji 渐变方块 */
+
+/* -------------------- 食堂快捷入口 -------------------- */
+
+.canteen-item {
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  height: 100rpx;
-  padding: 0 $gap-card;
-  border-bottom: 2rpx solid $line;
+  width: 140rpx;
+  margin-right: 20rpx;
 }
 
-.canteen:last-child {
-  border-bottom: none;
+.canteen-icon {
+  font-size: 52rpx;
 }
 
 .canteen-name {
-  font-size: $fs-body;
-  color: $ink;
-}
-
-/* ==================== 今日热门 ==================== */
-.hot-scroll {
+  font-size: 22rpx;
+  color: #333;
+  margin-top: 8rpx;
+  max-width: 140rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.hot-item {
+/* -------------------- 今日热门 -------------------- */
+
+.hot-card {
   display: inline-block;
-  width: 240rpx;
-  margin-right: $gap;
+  width: 220rpx;
+  margin-right: 20rpx;
   vertical-align: top;
 }
 
 .hot-img {
-  position: relative;
-}
-
-.hot-tag {
-  position: absolute;
-  top: 12rpx;
-  left: 12rpx;
-  padding: 2rpx 12rpx;
-  background: $brand;
-  color: #fff;
-  font-size: 20rpx;
-  border-radius: $radius-pill;
+  border-radius: 14rpx;
 }
 
 .hot-name {
+  font-size: 26rpx;
+  color: #333;
+  margin-top: 12rpx;
   display: block;
-  margin-top: 16rpx;
-  font-size: $fs-sub;
-  color: $ink;
-  font-weight: $fw-medium;
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hot-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 6rpx;
-}
-
-.hot-price {
-  font-size: $fs-sub;
-  color: $brand;
-  font-weight: $fw-bold;
+  margin-top: 8rpx;
 }
 
 .hot-rating {
+  font-size: 22rpx;
+  color: #FF9800;
+}
+
+.hot-price {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #FF6B35;
+}
+
+/* -------------------- 高分红榜 -------------------- */
+
+.rank-list {
   display: flex;
-  align-items: center;
+  flex-direction: column;
 }
 
-.hot-rating-text {
-  margin-left: 4rpx;
-  font-size: $fs-tag;
-  color: $gray6;
-}
-
-/* ==================== 高分红榜 ==================== */
-.goods {
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-card;
-  padding: 8rpx $gap-card;
-  box-shadow: $shadow-card;
-}
-
-.good {
+.rank-item {
   display: flex;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 2rpx solid $line;
+  border-bottom: 1rpx solid #f5f5f5;
 }
 
-.good:last-child {
+.rank-item:last-child {
   border-bottom: none;
 }
 
-.good-rank {
-  width: 44rpx;
-  font-size: $fs-body;
-  font-weight: $fw-bold;
-  color: $gray4;
-  flex-shrink: 0;
+.rank-num {
+  width: 48rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ccc;
 }
 
-.good-rank-top {
-  color: $brand;
+.rank-num.rank-top {
+  color: #FF6B35;
 }
 
-.good-body {
+.rank-img {
+  margin: 0 20rpx;
+}
+
+.rank-info {
   flex: 1;
-  min-width: 0;
-  margin-left: 20rpx;
-}
-
-.good-name {
-  display: block;
-  font-size: $fs-body;
-  color: $ink;
-  font-weight: $fw-medium;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
-.good-loc {
+.rank-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
   display: block;
-  margin-top: 6rpx;
-  font-size: $fs-cap;
-  color: $gray6;
 }
 
-.good-right {
+.rank-loc {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+  display: block;
+}
+
+.rank-tags {
+  margin-top: 8rpx;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 20rpx;
+  color: #FF6B35;
+  background: #FFF0EB;
+  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  margin-right: 8rpx;
+}
+
+.rank-right {
   text-align: right;
-  margin-left: 16rpx;
+  min-width: 130rpx;
 }
 
-.good-price {
+.rank-price {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #FF6B35;
   display: block;
-  font-size: $fs-body;
-  color: $brand;
-  font-weight: $fw-bold;
 }
 
-.good-score {
-  display: block;
+.rank-score {
+  font-size: 22rpx;
+  color: #FF9800;
   margin-top: 6rpx;
-  font-size: $fs-tag;
-  color: $gray6;
+  display: block;
 }
 
-/* ==================== 新品 ==================== */
+/* -------------------- 新品尝鲜 -------------------- */
+
 .new-grid {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
 }
 
 .new-item {
   width: 31.5%;
-  margin-bottom: $gap;
+  margin-right: 2.75%;
+  margin-bottom: 24rpx;
 }
 
-.new-img {
+.new-item:nth-child(3n) {
+  margin-right: 0;
+}
+
+.new-img-wrap {
   position: relative;
 }
 
-.new-img :deep(.dish-image) {
+.new-img-wrap :deep(.dish-image) {
   width: 100% !important;
-  height: 200rpx !important;
+  height: 180rpx !important;
 }
 
 .new-badge {
   position: absolute;
-  top: 10rpx;
-  left: 10rpx;
-  padding: 2rpx 12rpx;
-  background: $brand;
+  top: 0;
+  left: 0;
+  font-size: 18rpx;
   color: #fff;
-  font-size: 20rpx;
-  border-radius: $radius-pill;
+  background: #FF6B35;
+  border-radius: 20rpx 0 20rpx 0;
+  padding: 2rpx 12rpx;
 }
 
 .new-name {
+  font-size: 24rpx;
+  color: #333;
+  margin-top: 10rpx;
   display: block;
-  margin-top: 14rpx;
-  font-size: $fs-cap;
-  color: $ink;
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .new-price {
-  display: block;
+  font-size: 22rpx;
+  font-weight: bold;
+  color: #FF6B35;
   margin-top: 4rpx;
-  font-size: $fs-cap;
-  color: $brand;
-  font-weight: $fw-bold;
+  display: block;
 }
 
-/* ==================== 状态 ==================== */
-.state {
-  margin: $gap-lg $gap-page 0;
-  padding: 80rpx $gap-card;
-  background: $surface;
-  border: 2rpx solid $line;
-  border-radius: $radius-card;
+/* -------------------- 状态与提示 -------------------- */
+
+.state-box {
+  margin: 24rpx;
+  padding: 60rpx 30rpx;
+  background: #fff;
+  border-radius: 20rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.spinner {
-  width: 44rpx;
-  height: 44rpx;
-  border: 4rpx solid $line;
-  border-top-color: $brand;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.state-emoji {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
 }
 
 .state-text {
-  margin-top: $gap;
-  font-size: $fs-sub;
-  color: $gray6;
+  font-size: 26rpx;
+  color: #999;
 }
 
-.state-title {
-  margin-top: $gap;
-  font-size: $fs-body;
-  color: $ink;
-  font-weight: $fw-medium;
+.state-retry {
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: #FF6B35;
+  border: 1rpx solid #FF6B35;
+  border-radius: 30rpx;
+  padding: 8rpx 32rpx;
 }
 
-.state-sub {
-  margin-top: 8rpx;
-  font-size: $fs-cap;
-  color: $gray6;
+.data-hint {
+  padding: 20rpx 30rpx 0;
   text-align: center;
 }
 
-.state-btn {
-  margin-top: $gap-lg;
-  height: $h-btn-sm;
-  padding: 0 44rpx;
-  line-height: $h-btn-sm;
-  background: $surface-sunken;
-  border-radius: $radius-pill;
-  font-size: $fs-sub;
-  color: $gray7;
-}
-
-/* ==================== 数据来源 ==================== */
-.source {
-  display: flex;
-  align-items: flex-start;
-  margin: $gap-lg $gap-page 0;
-}
-
-.source-text {
-  flex: 1;
-  margin-left: 10rpx;
-  font-size: $fs-tag;
-  color: $gray4;
-  line-height: 1.6;
+.data-hint-text {
+  font-size: 22rpx;
+  color: #bbb;
+  line-height: 32rpx;
 }
 </style>
