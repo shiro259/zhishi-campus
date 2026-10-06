@@ -24,7 +24,25 @@ const db = uniCloud.database();
 const dbCmd = db.command;
 
 // 复用公共库的管理口令校验，避免任何客户端都能清空菜品表
-const common = require('../common/shiyu-common/index.js');
+// 引用公共模块 shiyu-common。
+// 优先用「模块名」形式：这是 uniCloud 公共模块的标准引用方式，
+// HBuilderX 上传云函数时会自动把依赖的公共模块一并打包进去。
+// 注意不能只用相对路径 —— 上传时只传该函数自己的目录，云端不存在 ../common/ 这个兄弟目录。
+// 但本地目录里两种都成立，所以这里带回退，谁可用用谁。
+let common
+try {
+  // 首选：本目录下的副本。它随云函数一起上传，云端一定存在，
+  // 不依赖「公共模块是否被打包」这件事（上传云函数只传该函数自己的目录）。
+  common = require('./shiyu-common.js')
+} catch (e) {
+  try {
+    // 次选：uniCloud 公共模块名（部分工具链会自动打包 common/ 下的模块）
+    common = require('shiyu-common')
+  } catch (e2) {
+    // 最后：本地开发目录里的相对路径
+    common = require('../common/shiyu-common/index.js')
+  }
+}
 
 const COLLECTION = 'dishes';
 
@@ -33,6 +51,12 @@ const COLLECTION = 'dishes';
  * 覆盖三个食堂共八个窗口，价格区间 4~20 元。
  * 每条包含：name / price / canteen / window / category / tags / emoji /
  *          description / rating / review_count / recommend_count / status / is_new
+ *
+ * ⚠️ image 字段写的是**本机** static/dishes/*.jpg。
+ *    菜品图迁到云存储后（管理后台「菜品管理 → 转云存储」），本机图片可能已删除，
+ *    此时执行 'reset' 会把云端图片地址改回不存在的本机路径 → 全部菜品退化成 emoji。
+ *    要用 'sync'（只补缺失、不覆盖已有记录）而不是 'reset'。
+ *    详见 README「菜品配图」一节。
  *
  * tags 设计要点（这是忌口硬过滤的数据基础）：
  *   1. 口味维度取自：辣、麻辣、清淡、咸香、甜、酸、重油、鲜嫩、下饭、汤面、
@@ -49,7 +73,9 @@ const SEED_DISHES = [
     canteen: '第一食堂',
     window: '川味窗口',
     category: '川菜',
-    tags: ['辣', '麻辣', '下饭', '葱', '蒜'],
+    // 「牛肉」不可漏：描述里的牛肉末只有写进 tags，搜「牛肉」才搜得到，
+    // 忌口牛肉的同学也才会被硬过滤掉（推荐引擎按 tags 精确匹配忌口）
+    tags: ['辣', '麻辣', '下饭', '葱', '蒜', '牛肉'],
     emoji: '🌶️', image: 'static/dishes/d001.jpg',
     description: '嫩豆腐配牛肉末，麻辣鲜香，拌米饭特别下饭',
     rating: 4.6,
@@ -323,7 +349,8 @@ const SEED_DISHES = [
     canteen: '第二食堂',
     window: '面食窗口',
     category: '面食',
-    tags: ['清淡', '汤面', '早餐', '养胃'],
+    // 描述里的「葱花」要落进 tags：否则搜「葱」搜不到，忌口葱的同学也不会被过滤
+    tags: ['清淡', '汤面', '早餐', '养胃', '葱'],
     emoji: '🍲', image: 'static/dishes/d015.jpg',
     description: '清汤挂面撒把葱花，简单却养胃，早餐刚刚好',
     rating: 4.1,

@@ -1,5 +1,9 @@
 {
   "name": "shiyu-review",
   "version": "1.0.0",
-  "main": "index.js"
+  "main": "index.js",
+  "cloudfunction-config": {
+    "timeout": 30,
+    "memorySize": 512
+  }
 }

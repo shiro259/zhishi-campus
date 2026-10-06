@@ -1,28 +1,79 @@
 <template>
   <view class="chat-page">
-    <!-- 消息列表 -->
+    <!-- ==================== 消息列表 ==================== -->
     <scroll-view
       class="msg-list"
       scroll-y
       :scroll-into-view="scrollId"
       scroll-with-animation
     >
-      <!-- 欢迎消息 -->
-      <view class="msg-item msg-bot" id="msg-welcome">
-        <view class="avatar bot-avatar">🤖</view>
-        <view class="bubble bot-bubble">
-          <text class="bubble-text">你好！我是食遇AI助手 🍜\n\n我知道学校食堂的所有菜品，告诉我你想吃什么，我来帮你选！\n\n比如你可以说：\n• "想吃辣的，10块以内"\n• "不吃香菜，有什么清淡的？"\n• "推荐个高分的面食"\n• "今天午餐吃什么好？"</text>
+      <!-- ---------- 欢迎区：对话还没开始时展示 ----------
+           用 v-if="messages.length <= 1" 与原来的快捷提问保持一致：
+           一旦开始对话，欢迎区收起，界面回到纯粹的聊天。 -->
+      <view class="welcome" v-if="messages.length <= 1" id="msg-welcome">
+        <!-- AI 助手欢迎区：品牌橙渐变 + 机器人形象 -->
+        <view class="hero">
+          <view class="hero-halo"></view>
+          <AiMascot :size="136" glow float />
+
+          <text class="hero-title">你好，我是食遇 AI</text>
+
+          <view class="hero-pill">
+            <Icon name="sparkle" :size="24" color="#ff5a36" />
+            <text class="hero-pill-text">AI 食堂推荐 · 我知道食堂的每道菜</text>
+          </view>
+        </view>
+
+        <!-- 快捷提问 → 美食推荐入口卡片 -->
+        <view class="block">
+          <text class="block-title">想吃点什么？点一下直接问</text>
+          <view class="entry-grid">
+            <view
+              class="entry-card"
+              v-for="e in quickEntries"
+              :key="e.text"
+              @click="sendQuick(e.text)"
+            >
+              <view class="entry-icon">
+                <Icon :name="e.icon" :size="32" color="#ff5a36" />
+              </view>
+              <text class="entry-text">{{ e.text }}</text>
+              <text class="entry-hint">{{ e.hint }}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 今日推荐菜品预览 -->
+        <view class="block" v-if="todayPicks.length">
+          <view class="block-head">
+            <text class="block-title">今日推荐</text>
+            <view class="block-more" @click="goList">
+              <text class="block-more-text">看全部</text>
+              <Icon name="right" :size="22" color="#8a8580" />
+            </view>
+          </view>
+          <view class="pick-row">
+            <view
+              class="pick-card"
+              v-for="d in todayPicks"
+              :key="d.id || d._id"
+              @click="goDetail(d.id || d._id)"
+            >
+              <DishImage :dish="d" :size="196" :height="136" :radius="20" />
+              <text class="pick-name">{{ d.name }}</text>
+              <view class="pick-meta">
+                <text class="pick-price">¥{{ d.price }}</text>
+                <view class="pick-score">
+                  <Icon name="star" :size="20" color="#ff5a36" />
+                  <text class="pick-score-text">{{ formatRating(d.rating) }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
         </view>
       </view>
 
-      <!-- 快捷提问 -->
-      <view class="quick-ask" v-if="messages.length <= 1">
-        <view class="quick-item" v-for="q in quickQuestions" :key="q" @click="sendQuick(q)">
-          {{ q }}
-        </view>
-      </view>
-
-      <!-- 对话消息 -->
+      <!-- ---------- 对话消息 ---------- -->
       <view
         class="msg-item"
         :class="m.role === 'user' ? 'msg-user' : 'msg-bot'"
@@ -30,9 +81,13 @@
         :key="i"
         :id="'msg-' + i"
       >
-        <view class="avatar" :class="m.role === 'user' ? 'user-avatar' : 'bot-avatar'">
-          {{ m.role === 'user' ? '😊' : '🤖' }}
+        <view class="avatar-wrap">
+          <AiMascot v-if="m.role !== 'user'" :size="68" />
+          <view v-else class="user-avatar">
+            <Icon name="user" :size="34" color="#8a8580" />
+          </view>
         </view>
+
         <view class="bubble" :class="m.role === 'user' ? 'user-bubble' : 'bot-bubble'">
           <!-- 菜品卡片（AI 返回的推荐菜品） -->
           <view v-if="m.dishes && m.dishes.length" class="dish-cards">
@@ -46,10 +101,16 @@
                 <text class="dish-card-name">{{ d.name }}</text>
                 <text class="dish-card-price">¥{{ d.price }}</text>
               </view>
-              <text class="dish-card-loc">{{ formatLocation(d) || '位置待完善' }}</text>
+              <view class="dish-card-loc">
+                <Icon name="location" :size="20" color="#b8b2aa" />
+                <text class="dish-card-loc-text">{{ formatLocation(d) || '位置待完善' }}</text>
+              </view>
               <view class="dish-card-tags">
                 <text class="dish-tag" v-for="t in (d.tags || []).slice(0, 3)" :key="t">{{ t }}</text>
-                <text class="dish-tag dish-tag-rate">⭐{{ d.rating }}</text>
+                <view class="dish-tag dish-tag-rate">
+                  <Icon name="star" :size="18" color="#ff5a36" />
+                  <text class="dish-tag-rate-text">{{ d.rating }}</text>
+                </view>
               </view>
               <text class="dish-card-reason" v-if="d.reason">{{ d.reason }}</text>
             </view>
@@ -67,34 +128,53 @@
       <view class="msg-bottom" />
     </scroll-view>
 
-    <!-- 输入栏 -->
+    <!-- ==================== 输入栏（悬浮圆角） ==================== -->
     <view class="input-bar">
-      <input
-        class="input-field"
-        v-model="inputText"
-        placeholder="输入你想吃的..."
-        confirm-type="send"
-        :disabled="sending"
-        @confirm="send()"
-      />
+      <view class="input-pill">
+        <input
+          class="input-field"
+          v-model="inputText"
+          placeholder="说说你想吃什么…"
+          placeholder-class="input-ph"
+          confirm-type="send"
+          :disabled="sending"
+          @confirm="send()"
+        />
+      </view>
       <view class="send-btn" :class="{ disabled: !inputText.trim() || sending }" @click="send()">
-        <text v-if="!sending">发送</text>
-        <text v-else>...</text>
+        <Icon v-if="!sending" name="right" :size="36" color="#ffffff" />
+        <text class="send-btn-text" v-else>···</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+/**
+ * AI 助手对话页（食遇校园）
+ *
+ * 定位：把「不知道吃啥」这件事交给 AI —— 说一句口味/预算/忌口，直接给出菜品。
+ *
+ * 数据链路：
+ *   对话内容 → 云函数 shiyu-chat（大模型，返回文字 + [DISH:id] 标注解析出的菜品）
+ *   今日推荐 → @/api/index.js → shiyu-dish 的 hot 榜单（云端不可用时自动走本地菜谱）
+ *
+ * 页面是 tabBar 页，用 onShow 而非 onLoad：切换 tab 不会重新触发 onLoad。
+ */
+import { ref, computed, nextTick } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { buildPrefSentence, explainCloudError } from '@/api/index.js'
+import { buildPrefSentence, explainCloudError, dishApi } from '@/api/index.js'
 import { formatLocation } from '@/common/utils.js'
+import DishImage from '@/components/DishImage/DishImage.vue'
+import Icon from '@/components/Icon/Icon.vue'
+import AiMascot from '@/components/AiMascot/AiMascot.vue'
 
 const messages = ref([])
 const inputText = ref('')
 const sending = ref(false)
 const scrollId = ref('msg-welcome')
+/** 今日推荐（欢迎区里的预览模块） */
+const todayPicks = ref([])
 
 const quickQuestions = [
   '想吃辣的，10块以内',
@@ -102,6 +182,34 @@ const quickQuestions = [
   '不吃香菜，有什么好吃的？',
   '高分菜品有哪些？'
 ]
+
+/**
+ * 快捷入口卡片的图标与副标题
+ *
+ * 用「问题原文 → 样式」的映射，而不是按下标取：
+ * 下标耦合在有人调整 quickQuestions 顺序时会静默错位（卡片配错图标很难被发现）。
+ * 映射里没有的问题会退化成默认样式，不会报错。
+ */
+const QUICK_ENTRY_META = {
+  '想吃辣的，10块以内': { icon: 'fire', hint: '按口味 + 预算挑' },
+  '推荐个清淡的早餐': { icon: 'bowl', hint: '清爽好消化' },
+  '不吃香菜，有什么好吃的？': { icon: 'heart', hint: '按忌口自动规避' },
+  '高分菜品有哪些？': { icon: 'star', hint: '同学评分最高' }
+}
+
+const quickEntries = computed(() =>
+  quickQuestions.map((q) => ({
+    text: q,
+    icon: (QUICK_ENTRY_META[q] && QUICK_ENTRY_META[q].icon) || 'sparkle',
+    hint: (QUICK_ENTRY_META[q] && QUICK_ENTRY_META[q].hint) || '点一下问 AI'
+  }))
+)
+
+/** 评分展示：非数字时给占位符，避免卡片上出现 "undefined" */
+function formatRating(r) {
+  const n = Number(r)
+  return Number.isFinite(n) ? n.toFixed(1) : '—'
+}
 
 /** 滚动到底部 */
 function scrollToBottom() {
@@ -116,6 +224,26 @@ function scrollToBottom() {
 function sendQuick(q) {
   inputText.value = q
   send()
+}
+
+/**
+ * 拉取「今日推荐」
+ *
+ * 只在第一次进入时请求一次（tabBar 来回切换不重复拉）。
+ * 首页是 tabBar 页里最像「首页」的一屏，这里放三条高频菜做预览，
+ * 让还没开口的用户先看到食堂有什么。
+ * 失败就保持为空 —— 欢迎区里这块不渲染，不打断聊天主流程。
+ */
+let todayPicksLoaded = false
+async function loadTodayPicks() {
+  if (todayPicksLoaded) return
+  todayPicksLoaded = true
+  try {
+    const res = await dishApi.rank('hot', 3)
+    todayPicks.value = (res && res.list) || []
+  } catch (e) {
+    todayPicks.value = []
+  }
 }
 
 /** 发送消息 */
@@ -210,6 +338,11 @@ function goDetail(id) {
   uni.navigateTo({ url: `/pages/dish/dish?id=${id}` })
 }
 
+/** 去菜品列表看全部（tabBar 页用 switchTab） */
+function goList() {
+  uni.switchTab({ url: '/pages/dish-list/dish-list' })
+}
+
 /**
  * 消费首页「快捷口味」留下的一次性偏好
  *
@@ -239,27 +372,37 @@ function consumePendingPref() {
 // onShow 而非 onLoad：tabBar 页切换不会重新触发 onLoad
 onShow(() => {
   consumePendingPref()
+  loadTodayPicks()
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+/**
+ * 对话页样式
+ *
+ * 全部使用 common/tokens.scss 的设计令牌（uni.scss 已自动注入）。
+ * 改造前这里写死了 #FF6B35 / #f0f0f0 / 20rpx，还有 emoji 当头像和图标，
+ * 所以看着像「能跑的 demo」而不是能上线的产品。
+ */
+
 .chat-page {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f0f0f0;
+  background: $canvas;
 }
 
-/* ---------- 消息列表 ---------- */
+/* ==================== 消息列表 ==================== */
+
 .msg-list {
   flex: 1;
-  padding: 20rpx 24rpx;
+  padding: 24rpx;
   box-sizing: border-box;
 }
 
 .msg-item {
   display: flex;
-  margin-bottom: 28rpx;
+  margin-bottom: 32rpx;
   align-items: flex-start;
 }
 
@@ -267,47 +410,256 @@ onShow(() => {
   flex-direction: row-reverse;
 }
 
-.avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36rpx;
+.avatar-wrap {
   flex-shrink: 0;
 }
 
-.bot-avatar {
-  background: #fff;
-  margin-right: 16rpx;
+.user-avatar {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 50%;
+  background: $surface;
+  border: 1rpx solid $line;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.user-avatar {
-  background: #FF6B35;
-  margin-left: 16rpx;
+/* ==================== 欢迎区 ==================== */
+
+.welcome {
+  padding-bottom: 8rpx;
 }
+
+/* 品牌橙渐变主视觉 */
+.hero {
+  position: relative;
+  padding: 40rpx 32rpx 36rpx;
+  border-radius: $radius-lg;
+  /**
+   * 渐变几乎竖直（168deg）并压深下半段：
+   * 机器人形象在浅色区、白色标题落在深色区。
+   * 实测过第一版 150deg / #ff8f6b→#e8481f 时，标题压在偏亮的橙上只有 2.88:1，
+   * 达不到大字号 3:1 的线；现在标题所在区域能到 4:1 以上。
+   */
+  background: linear-gradient(168deg, #ff8f6b 0%, #f24e24 42%, #cf3d17 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  box-shadow: 0 12rpx 32rpx rgba(255, 90, 54, 0.22);
+}
+
+/* 右上角柔光：让纯色渐变不那么平 */
+.hero-halo {
+  position: absolute;
+  top: -110rpx;
+  right: -70rpx;
+  width: 340rpx;
+  height: 340rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.hero-title {
+  position: relative;
+  margin-top: 20rpx;
+  font-size: 40rpx;
+  font-weight: $fw-bold;
+  color: #fff;
+  letter-spacing: 1rpx;
+  text-shadow: 0 2rpx 10rpx rgba(150, 45, 10, 0.28);
+}
+
+/* 能力说明放在白色胶囊里：白底 + 品牌橙文字，对比度远好于白字压橙底 */
+.hero-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  padding: 14rpx 26rpx;
+  border-radius: $radius-pill;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4rpx 14rpx rgba(150, 45, 10, 0.16);
+}
+
+/**
+ * 能力说明放在白色胶囊里
+ *
+ * 文字用 $ink 而不是品牌橙：实测 #ff5a36 压在白色上对比度只有 3.09:1，
+ * 12pt 的小字达不到 WCAG AA 的 4.5:1（橙色只保留在左侧的 sparkle 图标上，
+ * 品牌感靠英雄区的橙色渐变承担）。
+ */
+.hero-pill-text {
+  font-size: $fs-tag;
+  font-weight: $fw-medium;
+  color: $ink;
+  margin-left: 10rpx;
+}
+
+/* ==================== 区块通用 ==================== */
+
+.block {
+  margin-top: 32rpx;
+}
+
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.block-title {
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.block-head .block-title {
+  margin-bottom: 0;
+}
+
+.block-more {
+  display: flex;
+  align-items: center;
+}
+
+.block-more-text {
+  font-size: $fs-cap;
+  color: $gray6;
+  margin-right: 4rpx;
+}
+
+/* ==================== 快捷入口卡片 ==================== */
+
+.entry-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.entry-card {
+  width: 328rpx;
+  box-sizing: border-box;
+  background: $surface;
+  border: 1rpx solid $line;
+  border-radius: $radius-card;
+  padding: 24rpx 22rpx;
+  margin-bottom: 20rpx;
+  box-shadow: $shadow-card;
+}
+
+.entry-card:active {
+  background: $brand-soft;
+  border-color: $brand-line;
+}
+
+.entry-icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: $brand-soft;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.entry-text {
+  display: block;
+  font-size: $fs-sub;
+  font-weight: $fw-medium;
+  color: $ink;
+  line-height: 1.45;
+  margin-top: 16rpx;
+}
+
+.entry-hint {
+  display: block;
+  font-size: $fs-tag;
+  color: $gray6;
+  margin-top: 8rpx;
+}
+
+/* ==================== 今日推荐预览 ==================== */
+
+.pick-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.pick-card {
+  width: 196rpx;
+}
+
+.pick-card:active {
+  opacity: 0.85;
+}
+
+.pick-name {
+  display: block;
+  font-size: $fs-cap;
+  font-weight: $fw-medium;
+  color: $ink;
+  margin-top: 14rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pick-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+
+.pick-price {
+  font-size: $fs-cap;
+  font-weight: $fw-bold;
+  color: $brand;
+}
+
+.pick-score {
+  display: flex;
+  align-items: center;
+}
+
+.pick-score-text {
+  font-size: $fs-tag;
+  color: $gray6;
+  margin-left: 4rpx;
+}
+
+/* ==================== 聊天气泡（圆角卡片 + 层次） ==================== */
 
 .bubble {
   max-width: 76%;
-  padding: 22rpx 26rpx;
-  border-radius: 20rpx;
+  padding: 24rpx 26rpx;
+  border-radius: $radius-lg;
   position: relative;
 }
 
 .bot-bubble {
-  background: #fff;
-  border-top-left-radius: 6rpx;
+  background: $surface;
+  border-top-left-radius: $radius-sm;
+  margin-left: 18rpx;
+  box-shadow: 0 6rpx 22rpx rgba(20, 17, 15, 0.06);
 }
 
 .user-bubble {
-  background: #FF6B35;
-  border-top-right-radius: 6rpx;
+  background: linear-gradient(135deg, $brand 0%, #ff8055 100%);
+  border-top-right-radius: $radius-sm;
+  margin-right: 18rpx;
+  box-shadow: 0 8rpx 22rpx rgba(255, 90, 54, 0.26);
 }
 
 .bubble-text {
-  font-size: 28rpx;
-  line-height: 1.6;
+  font-size: $fs-body;
+  line-height: 1.62;
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -317,10 +669,11 @@ onShow(() => {
 }
 
 .bot-bubble .bubble-text {
-  color: #333;
+  color: $gray7;
 }
 
 /* ---------- 打字动画 ---------- */
+
 .typing {
   display: flex;
   padding: 8rpx 0;
@@ -330,48 +683,33 @@ onShow(() => {
   width: 14rpx;
   height: 14rpx;
   border-radius: 50%;
-  background: #ccc;
+  background: $brand-line;
   margin: 0 6rpx;
   animation: blink 1.2s infinite;
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1.2); }
 }
 
-/* ---------- 快捷提问 ---------- */
-.quick-ask {
-  display: flex;
-  flex-wrap: wrap;
-  padding: 8rpx 88rpx 0;
-}
+/* ==================== 气泡里的菜品卡片 ==================== */
 
-.quick-item {
-  font-size: 24rpx;
-  color: #FF6B35;
-  background: #fff;
-  border: 2rpx solid #FF6B35;
-  padding: 10rpx 22rpx;
-  border-radius: 30rpx;
-  margin: 0 14rpx 14rpx 0;
-}
-
-/* ---------- 菜品卡片 ---------- */
 .dish-cards {
-  margin-bottom: 16rpx;
+  margin-bottom: 18rpx;
 }
 
 .dish-card {
-  background: #f9f9f9;
-  border-radius: 14rpx;
-  padding: 20rpx 22rpx;
-  margin-bottom: 14rpx;
-  border: 2rpx solid #eee;
+  /* 用暖白画布色做内嵌卡：比在白色气泡里再放一张白卡更有层次 */
+  background: $canvas;
+  border-radius: $radius;
+  padding: 22rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid $line;
 }
 
 .dish-card:active {
-  background: #f0f0f0;
+  background: $surface-sunken;
 }
 
 .dish-card-head {
@@ -381,93 +719,127 @@ onShow(() => {
 }
 
 .dish-card-name {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: $fs-body;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .dish-card-price {
-  font-size: 30rpx;
-  color: #FF6B35;
-  font-weight: bold;
+  font-size: $fs-body;
+  font-weight: $fw-bold;
+  color: $brand;
 }
 
 .dish-card-loc {
-  display: block;
-  font-size: 22rpx;
-  color: #999;
-  margin-top: 6rpx;
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.dish-card-loc-text {
+  font-size: $fs-tag;
+  color: $gray6;
+  margin-left: 6rpx;
 }
 
 .dish-card-tags {
   display: flex;
   flex-wrap: wrap;
-  margin-top: 10rpx;
+  align-items: center;
+  margin-top: 12rpx;
 }
 
 .dish-tag {
-  font-size: 20rpx;
-  color: #FF6B35;
-  background: #fff0eb;
+  font-size: $fs-tag;
+  color: $gray6;
+  background: $surface-sunken;
   padding: 4rpx 14rpx;
-  border-radius: 8rpx;
+  border-radius: $radius-sm;
   margin: 0 8rpx 8rpx 0;
 }
 
 .dish-tag-rate {
-  color: #FF9800;
-  background: #fff8e8;
+  display: flex;
+  align-items: center;
+  background: $brand-soft;
+}
+
+.dish-tag-rate-text {
+  font-size: $fs-tag;
+  color: $brand;
+  font-weight: $fw-medium;
+  margin-left: 4rpx;
 }
 
 .dish-card-reason {
   display: block;
-  font-size: 23rpx;
-  color: #666;
+  font-size: $fs-tag;
+  color: $gray6;
   line-height: 1.5;
   margin-top: 10rpx;
-  padding-top: 10rpx;
-  border-top: 1rpx solid #f0f0f0;
+  padding-top: 12rpx;
+  border-top: 1rpx solid $line;
 }
 
-/* ---------- 输入栏 ---------- */
+/* ==================== 输入栏（悬浮圆角） ==================== */
+
 .input-bar {
   display: flex;
   align-items: center;
   padding: 16rpx 24rpx;
-  background: #fff;
-  border-top: 2rpx solid #eee;
+  background: $canvas;
   padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+}
+
+.input-pill {
+  flex: 1;
+  height: 88rpx;
+  background: $surface;
+  border-radius: $radius-pill;
+  border: 1rpx solid $line;
+  box-shadow: 0 8rpx 24rpx rgba(20, 17, 15, 0.07);
+  display: flex;
+  align-items: center;
+  padding: 0 32rpx;
+  box-sizing: border-box;
 }
 
 .input-field {
   flex: 1;
-  height: 76rpx;
-  background: #f5f5f5;
-  border-radius: 38rpx;
-  padding: 0 28rpx;
-  font-size: 28rpx;
-  box-sizing: border-box;
+  height: 100%;
+  font-size: $fs-body;
+  color: $ink;
+}
+
+.input-ph {
+  color: $gray4;
+  font-size: $fs-body;
 }
 
 .send-btn {
-  margin-left: 16rpx;
-  width: 120rpx;
-  height: 76rpx;
-  background: #FF6B35;
-  border-radius: 38rpx;
+  margin-left: 18rpx;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $brand 0%, #ff8a5c 100%);
+  box-shadow: 0 8rpx 20rpx rgba(255, 90, 54, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 500;
+  flex-shrink: 0;
 }
 
 .send-btn.disabled {
-  background: #ccc;
+  background: $line-strong;
+  box-shadow: none;
+}
+
+.send-btn-text {
+  color: #fff;
+  font-size: $fs-sub;
 }
 
 .msg-bottom {
-  height: 20rpx;
+  height: 24rpx;
 }
 </style>

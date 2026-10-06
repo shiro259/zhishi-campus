@@ -30,20 +30,57 @@
           我的昵称
           <text class="required">*</text>
         </text>
+        <!--
+          微信小程序里用 type="nickname"：键盘上方会出现「使用微信昵称」的提示，
+          点一下即可填入真实微信昵称。
+          为什么不让程序自动填：微信从 2022-10-25 起，getUserProfile 返回的是
+          匿名数据（昵称「微信用户」+ 灰色默认头像），必须由用户主动确认才能拿到。
+        -->
         <input
           class="input"
           v-model="nickname"
-          type="text"
+          :type="nicknameInputType"
           maxlength="12"
           placeholder="2~12 个字，例如：干饭王小食"
           placeholder-class="ph"
           @confirm="submit"
         />
-        <text class="hint">用于评价、收藏的署名展示</text>
+        <text class="hint">
+          <template v-if="isWeixin">点输入框上方弹出的「使用微信昵称」即可一键填入</template>
+          <template v-else>用于评价、收藏的署名展示</template>
+        </text>
       </view>
 
       <view class="card">
-        <text class="card-label">挑一个头像</text>
+        <text class="card-label">我的头像</text>
+
+        <!--
+          微信头像只能由用户主动选择（微信官方「头像昵称填写能力」）：
+          open-type="chooseAvatar" 会拉起微信头像选择器
+          （里面有「用微信头像 / 从相册选择 / 拍照」）。
+          选完拿到的是临时文件路径，必须上传到云存储才能长期使用。
+        -->
+        <!-- #ifdef MP-WEIXIN -->
+        <button
+          class="avatar-pick"
+          open-type="chooseAvatar"
+          @chooseavatar="onChooseAvatar"
+        >
+          <image
+            v-if="avatarIsImage"
+            class="avatar-preview"
+            :src="avatar"
+            mode="aspectFill"
+          />
+          <text v-else class="avatar-preview-emoji">{{ avatar }}</text>
+        </button>
+        <text class="hint">
+          {{ avatarUploading ? '头像上传中…' : '点上面的头像可直接用微信头像' }}
+        </text>
+        <!-- #endif -->
+
+        <!-- 不想用微信头像也没关系：所有端都能从下面挑一个 emoji -->
+        <text class="avatar-or">{{ isWeixin ? '或者从下面挑一个 emoji' : '挑一个头像' }}</text>
         <view class="avatar-row">
           <view
             class="avatar-item"
@@ -64,39 +101,35 @@
         {{ submitting ? '正在进入…' : '进入食遇校园' }}
       </button>
 
+      <!--
+        微信一键登录只在微信小程序端有意义：
+        H5 / App 端 uni.login 拿不到微信授权码，按钮点了必然失败，
+        所以用条件编译直接不渲染（而不是渲染出来再报错）。
+      -->
+      <!-- #ifdef MP-WEIXIN -->
       <view class="wechat-btn" :class="{ disabled: wxLoading }" @click="wxLogin">
         <text class="wechat-icon">💬</text>
         <text class="wechat-text">{{ wxLoading ? '正在尝试微信登录…' : '微信一键登录' }}</text>
       </view>
+      <!-- #endif -->
 
       <text class="footer">
         同学身份保存在本机，仅用于收藏与评价归属，无需注册账号，也不会上传任何个人信息
       </text>
     </template>
 
-    <!-- ================= 管理员：账号 + 口令 ================= -->
+    <!-- ================= 管理员：管理口令 ================= -->
     <template v-else>
       <view class="card">
-        <text class="card-label">管理员账号</text>
-        <input
-          class="input"
-          v-model="adminUsername"
-          type="text"
-          placeholder="请输入管理员账号"
-          placeholder-class="ph"
-        />
-        <text class="card-label admin-pwd-label">管理员口令</text>
+        <text class="card-label">管理口令</text>
         <input
           class="input"
           v-model="adminPassword"
           password
-          placeholder="请输入管理员口令"
+          placeholder="请输入管理口令"
           placeholder-class="ph"
           @confirm="adminLogin"
         />
-        <text class="hint">
-          首次使用默认账号 admin、口令 admin123，登录后请尽快到「AI 配置」页修改
-        </text>
       </view>
 
       <button
@@ -107,10 +140,6 @@
       >
         {{ adminSubmitting ? '正在校验…' : '管理员登录' }}
       </button>
-
-      <text class="footer">
-        管理员凭证由云函数校验账号口令后签发并保存在本机，7 天后过期，口令不会上传
-      </text>
     </template>
   </view>
 </template>
@@ -124,9 +153,9 @@
  * 评价与收藏都以此 uid 作为归属依据，因此无需密码、无需服务端会话。
  * 微信一键登录为可选增强能力，未关联云空间/非微信端时静默降级为手动填写。
  */
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { userApi, adminAuthApi } from '@/api/index.js'
+import { userApi, adminAuthApi, explainCloudError, configApi } from '@/api/index.js'
 
 /** 可选头像（纯 emoji，项目菜品/头像都不使用图片资源） */
 const AVATARS = ['😋', '🍚', '🌶️', '🥗', '🍜', '🍱', '🐱', '🐼']
@@ -138,17 +167,108 @@ const nickname = ref('')
 const avatar = ref(randomAvatar())
 const submitting = ref(false)
 const wxLoading = ref(false)
+/** 微信头像上传中（上传期间禁用重复点击） */
+const avatarUploading = ref(false)
 /** 编辑模式（从「我的 → 编辑资料」进入）：保存后返回上一页而不是跳首页 */
 const isEditMode = ref(false)
 
+/**
+ * 昵称输入框类型
+ *
+ * 微信小程序用 'nickname' 才会在键盘上方出现「使用微信昵称」的一键填入；
+ * 其它端（H5 / App）没有这个类型，用普通 text，否则可能被当成未知类型。
+ */
+const nicknameInputType = ref('text')
+// #ifdef MP-WEIXIN
+nicknameInputType.value = 'nickname'
+// #endif
+
+/** 当前是否运行在微信小程序里（决定要不要显示微信相关文案与控件） */
+const isWeixin = ref(false)
+// #ifdef MP-WEIXIN
+isWeixin.value = true
+// #endif
+
+/**
+ * 头像是「可直接交给 <image> 的地址」还是 emoji
+ *
+ * 微信头像选择器给的是临时文件路径（wxfile:// 或 http://tmp/…），
+ * 上传成功后变成 cloud:// 的 fileID —— 两种都能直接显示；
+ * emoji 走 <text> 渲染，塞进 <image> 会加载失败。
+ */
+const avatarIsImage = computed(() =>
+  /^(https?:\/\/|cloud:\/\/|wxfile:\/\/|data:image\/)/.test(String(avatar.value || ''))
+)
+
 /** 管理员登录表单 */
-const adminUsername = ref('admin')
 const adminPassword = ref('')
 const adminSubmitting = ref(false)
 
 /** 随机挑一个头像作为默认值 */
 function randomAvatar() {
   return AVATARS[Math.floor(Math.random() * AVATARS.length)]
+}
+
+/**
+ * 把微信选中的头像上传到云存储
+ *
+ * 为什么必须上传：chooseAvatar 给的是**临时文件路径**（wxfile:// 或 http://tmp/…），
+ * 小程序重启后就失效了，直接存下来会变成一个「加载不出来的头像」。
+ * 上传后拿到 cloud:// 的 fileID，长期有效，且各端都能显示。
+ *
+ * @param {string} tempPath 微信头像选择器返回的临时路径
+ * @returns {Promise<string>} 云存储 fileID
+ */
+function uploadAvatar(tempPath) {
+  return new Promise((resolve, reject) => {
+    if (typeof uniCloud === 'undefined' || !uniCloud || !uniCloud.uploadFile) {
+      reject(new Error('云存储不可用：请先在 HBuilderX 中关联 uniCloud 服务空间'))
+      return
+    }
+    const matched = String(tempPath).match(/\.(\w+)$/)
+    const ext = matched ? matched[1] : 'png'
+    // cloudPath 必须唯一，否则同名会互相覆盖
+    const cloudPath = 'avatars/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
+
+    uniCloud.uploadFile({
+      filePath: tempPath,
+      cloudPath: cloudPath,
+      success: (res) => {
+        if (res && res.fileID) resolve(res.fileID)
+        else reject(new Error('云存储没有返回 fileID'))
+      },
+      fail: (err) => reject(new Error((err && (err.errMsg || err.message)) || '上传失败'))
+    })
+  })
+}
+
+/** 微信头像选择器的回调 */
+async function onChooseAvatar(e) {
+  if (avatarUploading.value) return
+  const tempPath = e && e.detail && e.detail.avatarUrl
+  if (!tempPath) return
+
+  // 先本地预览，上传成功后替换成云文件 id，交互上不卡顿
+  avatar.value = tempPath
+  avatarUploading.value = true
+  try {
+    const fileID = await uploadAvatar(tempPath)
+    avatar.value = fileID
+    uni.showToast({ title: '头像已设置', icon: 'none' })
+  } catch (err) {
+    // 上传失败就退回 emoji：临时路径留着重启后会变成坏头像，不如不用
+    avatar.value = randomAvatar()
+    uni.showModal({
+      title: '头像上传失败',
+      content:
+        ((err && err.message) || '未知错误') +
+        '\n\n可以先从下面挑一个 emoji 头像，不影响使用。\n' +
+        '（真机上还需要在微信公众平台配置 uploadFile 合法域名）',
+      showCancel: false
+    })
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 function toast(title) {
@@ -181,45 +301,108 @@ function studentRole() {
 /**
  * 管理员登录
  *
- * 身份不再由前端自己决定：必须把账号口令交给云函数校验，
- * 通过后才拿到 HMAC 签名的凭证，并据此写入 role: 'admin'。
+ * 身份不由前端自己决定：必须把管理口令交给云函数校验
+ * （云端存的是 SHA-256 摘要），通过后才写入 role: 'admin'。
  * 校验失败就什么也不改，避免出现「点一下就是管理员」。
  */
 async function adminLogin() {
-  if (adminSubmitting.value) return
-
-  const name = String(adminUsername.value || '').trim()
   const pwd = String(adminPassword.value || '')
-  if (!name) return toast('请输入管理员账号')
-  if (!pwd) return toast('请输入管理员口令')
+  if (!pwd) return toast('请输入管理口令')
+  await doAdminLogin(pwd)
+}
+
+/**
+ * 执行管理员登录
+ * @param {string} pwd 要提交的管理口令
+ */
+async function doAdminLogin(pwd) {
+  if (adminSubmitting.value) return
 
   adminSubmitting.value = true
   try {
-    const res = await adminAuthApi.login(name, pwd)
+    const res = await adminAuthApi.login(pwd)
+    // 无论成功失败都清空输入框，别让口令留在界面上
     adminPassword.value = ''
 
-    if (res && res.using_default_password) {
+    if (res && res.initialized) {
       uni.showModal({
-        title: '登录成功',
-        content: '当前仍在使用默认口令 admin123。可到「管理后台 → AI 配置 → 管理员口令」修改。',
-        confirmText: '去修改',
-        cancelText: '稍后再说',
-        success: (m) => {
-          // 用 reLaunch：登录页的历史不该留在后台页面后面，
-          // 否则在后台按返回会回到登录页，看起来像被踢出去了
-          uni.reLaunch({ url: m && m.confirm ? '/pages/admin/ai-config' : '/pages/admin/index' })
-        }
+        title: '已设置初始口令',
+        content: '云端此前没有管理口令，你刚才输入的口令已成为初始口令。请记牢，之后进入管理后台都要用它。',
+        confirmText: '知道了',
+        showCancel: false,
+        success: () => uni.reLaunch({ url: '/pages/admin/index' })
       })
     } else {
       uni.showToast({ title: '管理员登录成功', icon: 'success' })
+      // 用 reLaunch：登录页的历史不该留在后台页面后面，
+      // 否则在后台按返回会回到登录页，看起来像被踢出去了
       setTimeout(() => uni.reLaunch({ url: '/pages/admin/index' }), 700)
     }
   } catch (e) {
-    // 账号口令错误 / 云函数未上传 / 云空间未关联，都原样提示，便于定位
-    toast((e && e.message) || '管理员登录失败')
+    const reason = (e && e.message) || '管理员登录失败'
+    // 口令类失败最容易变成「反复猜」的死循环（本次就踩了：
+    // 改了 admin_token 却没生效，因为集合里可能有多条记录，代码只读第一条）。
+    // 所以这里顺手查一次云端状态，把「到底还有没有口令」直接摆出来。
+    if (/口令/.test(reason)) {
+      await diagnosePassphrase(reason, pwd)
+      return
+    }
+    // 云函数未上传 / 云空间未关联 / 域名被拦，都原样提示，便于定位
+    toast(explainCloudError(reason))
   } finally {
     adminSubmitting.value = false
   }
+}
+
+/**
+ * 口令校验失败时的具体诊断
+ *
+ * `shiyu-config` 的 get 动作不需要口令，所以能安全地查一次云端状态：
+ * has_admin_token = 云端到底还存不存管理口令。
+ * 这能一眼区分两种完全不同的原因：
+ *   · 仍然有口令 → 你清掉的字段没生效（最常见：集合里有多条记录，
+ *     而云函数固定读 .limit(1) 的第一条，你改的是另一条）
+ *   · 已经没有口令 → 那问题在别处（云函数版本 / 网络），需要看原文
+ *
+ * @param {string} reason 云函数返回的原因
+ * @param {string} sent 本次提交的口令（只做掩码展示，方便你确认自己输的是哪个）
+ */
+async function diagnosePassphrase(reason, sent) {
+  let hasCloudToken = null
+  try {
+    const data = await configApi.get()
+    hasCloudToken = !!(data && data.has_admin_token)
+  } catch (e) {
+    hasCloudToken = null
+  }
+
+  const text = String(sent || '')
+  const masked = text
+    ? text.slice(0, 3) + '****' + text.slice(-3) + '（' + text.length + ' 位）'
+    : '（空）'
+
+  let body
+  if (hasCloudToken === true) {
+    body = '云端【仍然】存着管理口令 —— 说明 admin_token 没被清掉。\n' +
+      '最常见的原因：shiyu-config 集合里有【多条记录】，云函数只读第一条（.limit(1)），\n' +
+      '你在控制台改的可能不是它。\n\n' +
+      '最省事的解决：把 shiyu-config 集合的记录【全部删除】，\n' +
+      '然后回本页输入新口令 —— 会自动完成初始化。\n' +
+      '（API Key 会一起没掉，去「AI 配置」页重新填一次即可）'
+  } else if (hasCloudToken === false) {
+    body = '云端【已经没有】管理口令了，但仍报校验失败，这不合常理。\n' +
+      '请把这段弹窗原文发给我，并确认 shiyu-config 云函数确实重新上传过。'
+  } else {
+    body = '读不到云端状态（云函数未上传 / 云空间未关联 / 网络异常）。\n' +
+      '请检查 shiyu-config 是否已上传部署。'
+  }
+
+  uni.showModal({
+    title: '管理口令校验失败',
+    content: '云端原文：' + reason + '\n\n本次提交的口令：' + masked + '\n\n' + body,
+    showCancel: false,
+    confirmText: '知道了'
+  })
 }
 
 onLoad((options) => {
@@ -302,16 +485,64 @@ async function submit() {
   }
 }
 
-/** 微信一键登录：任何失败都静默降级，绝不卡死流程 */
+/**
+ * 微信一键登录失败后的配置自检
+ *
+ * 让云函数回答「AppID / Secret 配了没有」（不需要真实 code）：
+ *   · configured === false → 自检结论本身就是完整解释（缺哪个变量、去哪配、要重新部署）
+ *   · configured === true  → 配置没问题，失败原因看微信错误码（自检会给出对照表）
+ *   · configured === null  → 连自检都调不通，那本身就是结论（云函数没上传 / 云空间没关联）
+ * 这样用户不用把报错发给我也能自己定位。
+ */
+async function diagnoseWechat() {
+  try {
+    const st = await userApi.checkWechatLogin()
+    return {
+      configured: !!(st && st.configured),
+      hint: (st && st.hint) || ''
+    }
+  } catch (e) {
+    return {
+      configured: null,
+      hint: '（配置自检也调不通：说明 wechat-login 云函数还没上传部署，或云服务空间未关联）'
+    }
+  }
+}
+
+/**
+ * 微信一键登录
+ *
+ * 失败时把**真实原因 + 配置自检结论**一起展示（用弹窗，因为内容是一整段操作指引），
+ * 而不是像以前那样不管什么原因都说「当前环境不支持微信登录」——
+ * 那句话把「不是小程序端」「取消授权」「云函数没上传」「没配 AppSecret」
+ * 混成一件事，谁也排查不了。手动填写昵称的路径始终可用。
+ */
 async function wxLogin() {
   if (wxLoading.value) return
   wxLoading.value = true
   try {
     const res = await userApi.wechatLogin()
     const info = res || {}
-    // 拿不到微信昵称/头像时用兜底值，保证流程能走完
-    const name = String(info.nickName || info.nickname || '微信同学').slice(0, 12)
-    const av = info.avatarUrl || info.avatar || randomAvatar()
+    /**
+     * 微信登录只返回 openid（云函数用它换 openid），**拿不到昵称和头像**。
+     *
+     * 这不是配置问题：微信从 2022-10-25 起，getUserProfile / getUserInfo
+     * 对未主动授权的调用只返回匿名数据（昵称「微信用户」+ 灰色默认头像）。
+     * 合规的做法是上面的「头像昵称填写能力」（chooseAvatar + type="nickname"），
+     * 由用户自己确认一次。
+     */
+    const fromWx = String(info.nickName || info.nickname || '').trim()
+    const wxAvatar = info.avatarUrl || info.avatar || ''
+
+    // 关键：本机若已有用户自己设置过的昵称/头像，绝不能被占位值覆盖掉
+    // （否则每次点「微信一键登录」都会把昵称重置回「微信同学」）
+    const existing = userApi.getProfile() || {}
+    const existingName = String(existing.nickname || '').trim()
+    const hasOwnName = existingName && existingName !== '微信同学'
+    const hasOwnAvatar = !!existing.avatar && avatarIsImage.value === false
+
+    const name = (fromWx || (hasOwnName ? existingName : '微信同学')).slice(0, 12)
+    const av = wxAvatar || (hasOwnAvatar ? existing.avatar : avatar.value || randomAvatar())
 
     nickname.value = name
     avatar.value = av
@@ -321,11 +552,45 @@ async function wxLogin() {
     const saved = userApi.saveProfile({ nickname: name, avatar: av, role: studentRole() })
     if (!saved) throw new Error('本机存储不可用')
 
-    uni.showToast({ title: '微信登录成功', icon: 'none' })
-    setTimeout(goHome, 700)
+    if (name === '微信同学') {
+      // 昵称还是占位值 → 引导用户用微信官方的头像/昵称填写能力补上
+      uni.showModal({
+        title: '已用微信身份登录',
+        content:
+          '微信已不允许小程序自动获取昵称和头像，需要你自己确认一次：\n\n' +
+          '· 点上面的头像 → 可直接选「用微信头像」\n' +
+          '· 点昵称输入框 → 键盘上方会出现「使用微信昵称」',
+        cancelText: '先逛逛',
+        confirmText: '去设置',
+        success: (r) => {
+          if (!r.confirm) goHome()
+        }
+      })
+    } else {
+      uni.showToast({ title: '微信登录成功', icon: 'none' })
+      setTimeout(goHome, 700)
+    }
   } catch (e) {
-    // 非微信端 / 未关联服务空间 / 用户取消 → 统一降级提示
-    uni.showToast({ title: '当前环境不支持微信登录，请手动填写', icon: 'none' })
+    const reason = ((e && e.message) || '微信登录失败').split('\n').filter(Boolean).join('\n')
+    const diag = await diagnoseWechat()
+
+    const parts = []
+    if (diag.configured === false) {
+      // 配置没到位：自检结论已经把话说全，不再重复那句「缺少环境变量 X」
+      if (diag.hint) parts.push(diag.hint)
+      else parts.push(reason)
+    } else {
+      parts.push(reason)
+      if (diag.hint) parts.push(diag.hint)
+    }
+    parts.push('可以先在下面手动填写昵称进入，功能完全一样。')
+
+    uni.showModal({
+      title: '微信一键登录没成功',
+      content: parts.join('\n\n'),
+      showCancel: false,
+      confirmText: '手动填写'
+    })
   } finally {
     wxLoading.value = false
   }
@@ -425,6 +690,48 @@ async function wxLogin() {
 }
 
 /* ---------------- 头像 ---------------- */
+
+/**
+ * 微信头像选择按钮（open-type="chooseAvatar"）
+ *
+ * 小程序里 <button> 自带边框与内边距，要清掉才能当一个圆形头像预览用。
+ */
+.avatar-pick {
+  width: 132rpx;
+  height: 132rpx;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
+  border: 4rpx solid #ffd9cc;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  line-height: normal;
+}
+
+.avatar-pick::after {
+  border: none;
+}
+
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-preview-emoji {
+  font-size: 64rpx;
+}
+
+.avatar-or {
+  display: block;
+  font-size: 21rpx;
+  color: #aaa;
+  margin: 20rpx 0 14rpx;
+}
+
 .avatar-row {
   display: flex;
   flex-wrap: wrap;

@@ -36,9 +36,11 @@ import { dishImageSrc, dishEmoji } from '@/common/utils.js'
 const props = defineProps({
   /** 菜品对象（含 id / image / emoji / category） */
   dish: { type: Object, default: () => ({}) },
-  /** 展示区边长（px） */
+  /** 宽度 / 边长（rpx）。不传 height 时同时是高度，即正方形 */
   size: { type: [Number, String], default: 140 },
-  /** 圆角（px） */
+  /** 高度（rpx）。用于首页把图片比例统一成横向（如 4:3）；不传则与 size 相同 */
+  height: { type: [Number, String], default: 0 },
+  /** 圆角（rpx） */
   radius: { type: [Number, String], default: 16 },
   /** image 的 mode */
   mode: { type: String, default: 'aspectFill' }
@@ -56,13 +58,29 @@ watch(src, () => {
   failedSrc.value = ''
 })
 
-const boxStyle = computed(() => ({
-  width: props.size + 'rpx',
-  height: props.size + 'rpx',
-  borderRadius: props.radius + 'rpx'
-}))
+/**
+ * 盒子尺寸
+ *
+ * 用内联 style 而不是给调用方提供 class 覆盖：小程序自定义组件默认样式隔离，
+ * 父页面写的 :deep(.dish-image) 在真机上可能根本进不来，
+ * 结果就是「图看不出来哪里不对、但比例就是乱」。内联样式不受隔离影响。
+ */
+const boxStyle = computed(() => {
+  const w = Number(props.size) || 140
+  const h = Number(props.height) || w
+  return {
+    width: w + 'rpx',
+    height: h + 'rpx',
+    borderRadius: (Number(props.radius) || 0) + 'rpx'
+  }
+})
 
-const emojiSize = computed(() => Math.round(Number(props.size) * 0.52) + 'rpx')
+/** emoji 按短边缩放，横向图里的 emoji 也不会被拉变形 */
+const emojiSize = computed(() => {
+  const w = Number(props.size) || 140
+  const h = Number(props.height) || w
+  return Math.round(Math.min(w, h) * 0.52) + 'rpx'
+})
 
 function onError() {
   failedSrc.value = src.value

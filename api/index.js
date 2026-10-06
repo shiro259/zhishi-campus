@@ -35,13 +35,27 @@ const STORAGE = {
   pref: 'shiyu_pref',
   history: 'shiyu_history',
   adminToken: 'shiyu_admin_token',
-  localReviews: 'shiyu_local_reviews'
+  localReviews: 'shiyu_local_reviews',
+  // 累计推荐次数。与 history 分开存：history 只留最近 20 条用于展示，
+  // 拿它的长度当「推荐次数」会永远卡在 20。
+  recommendCount: 'shiyu_recommend_count'
 }
 
 /* ------------------------------ 云函数可用性探测 ------------------------------ */
 
-// null 表示尚未探测；true 表示云空间可用；false 表示不可用（本次运行内不再重试）
+/**
+ * 云空间是否可用
+ *
+ * null = 尚未探测；true = 可用；false = 确认不可用。
+ * 只有「uniCloud 本身不存在」（未关联服务空间）才算确认不可用 —— 这是持久状况。
+ * 不能把「某一次超时」或「某个云函数 fail」上升为全局不可用：
+ * 首页加载会调用 shiyu-dish 等函数，只要其中一个不存在就锁死全部，
+ * 会连管理员登录都报「云空间不可用」。
+ */
 let cloudAvailable = null
+
+/** 已知不存在 / 未上传部署的云函数（只按函数名记，不连累其它函数） */
+const missingFunctions = new Set()
 
 /**
  * 菜品列表数据源是否锁定为本地
@@ -53,40 +67,149 @@ let cloudAvailable = null
 let dishListSource = 'cloud'
 
 /**
+ * 云端菜品库是否已被确认是「真实菜单」
+ *
+ * null = 还不知道；true = 云端菜库自洽可信（菜单以云端为准）；false = 空库 / 陈旧数据。
+ * 判定发生在「不带关键字的第一页」请求上（见 isCloudDishDataTrustworthy）。
+ *
+ * 它决定关键字搜索搜不到时**能不能**用本机种子菜谱兜底：
+ * 云端菜库要是真实菜单（同学们实际吃的那份），搜不到就是真的没有，
+ * 这时把本机种子菜（例如兰州拉面）塞进结果里，用户会看到一道自己食堂根本没有的菜 ——
+ * 那正是「搜索到错误菜品」。只有云端菜库确实不可用时，本机菜谱才是同一份菜单的替身。
+ */
+let cloudMenuTrusted = null
+
+/**
+ * 构造「云端不可达」类错误
+ *
+ * 用 cloudDown 标记与「业务错误」区分：业务错误是云函数正常执行后返回
+ * code!==0（例如口令校验失败），而 cloudDown 表示压根没问到云端
+ * （未关联服务空间 / 函数未上传 / 超时 / 网络异常）。
+ * 后台守卫据此决定是「踢出登录」还是「云端不可用但先放行」。
+ */
+function cloudError(message) {
+  const err = new Error(message)
+  err.cloudDown = true
+  return err
+}
+
+/**
+ * 把云函数调用失败的 errMsg 翻译成「原因 + 怎么办」
+ *
+ * 微信真机与开发者工具的差别很大，最常见的是域名白名单：
+ * manifest.json 里的 setting.urlCheck=false 只对开发者工具生效，
+ * 真机由微信客户端自己校验 request 合法域名，于是「工具里能通、手机上不通」。
+ *
+ * @param {string} errMsg 云函数 fail 回调里的 errMsg
+ * @returns {string} 含原始信息与修复建议的可读文本
+ */
+export function explainCloudError(errMsg) {
+  const raw = String(errMsg || '未知错误')
+
+  if (/url not in domain list|合法域名|domain list|not in domain/i.test(raw)) {
+    return raw +
+      '\n\n【原因】这台设备的微信拦下了请求：云函数域名不在 request 合法域名列表里。' +
+      '\n开发者工具里的「不校验合法域名」（manifest 的 urlCheck）只对工具本身生效，真机不适用。' +
+      '\n【办法】微信公众平台 → 开发管理 → 开发设置 → 服务器域名 → request 合法域名，' +
+      '把开发者工具 Network 面板里那个云函数请求的域名加进去，再重新预览。'
+  }
+  if (/口令校验失败|口令不正确|admin.?token/i.test(raw)) {
+    return raw +
+      '\n\n【原因】云端**已经**存着一个管理口令，你输入的不是它。' +
+      '\n最容易踩的坑：在「AI 配置」页点保存时把口令留空了，' +
+      '那时程序会用「本机随机生成」的一串口令去云端初始化 —— 于是云端口令变成一个你没见过的随机串。' +
+      '\n【办法一】本机可能还存着那串口令：回登录页直接点「管理员登录」（口令框已回填），能登进去就说明是对的。' +
+      '\n【办法二】uniCloud 控制台 → 云数据库 → shiyu-config 集合 → 删掉 admin_token 这个字段，' +
+      '下次登录时你输入的口令就会成为新的初始口令。'
+  }
+  if (/未知的 action|未知操作|unknown action/i.test(raw)) {
+    return raw +
+      '\n\n【原因】云端运行的还是**旧版**云函数，不认识这次请求的动作。' +
+      '\n本地代码改了不等于云端更新了：必须重新上传部署才会生效。' +
+      '\n【办法】HBuilderX → 右键对应的云函数目录 → 上传部署（本次改动过 shiyu-config）。'
+  }
+  if (/function not found|FUNCTION_NOT_FOUND|不存在|not exist/i.test(raw)) {
+    return raw + '\n\n【原因】这个云函数还没上传部署。\n【办法】HBuilderX 里右键该云函数 → 上传部署。'
+  }
+  if (/timeout|time out|超时/i.test(raw)) {
+    return raw +
+      '\n\n【原因】云函数超时。最常见的是**平台默认超时只有 5 秒**，' +
+      '而大模型生成一段回答经常不止 5 秒 —— 于是被平台掐断，客户端只看到超时。' +
+      '\n【办法】给云函数的 package.json 加上 cloudfunction-config.timeout（单位秒），' +
+      '例如 shiyu-chat 设成 60；改完需要**重新上传该云函数**才生效。' +
+      '\n（本项目已为 shiyu-chat / shiyu-config / shiyu-recommend / shiyu-seed 配好，' +
+      '若仍超时请确认这些云函数已重新上传部署）'
+  }
+  if (/cloud space|spaceId|envId|服务空间|not bound/i.test(raw)) {
+    return raw + '\n\n【原因】本项目没有关联云服务空间，或关联的空间不对。' +
+      '\n【办法】HBuilderX 里右键 uniCloud-aliyun → 关联云服务空间。'
+  }
+  if (/^request:fail/i.test(raw)) {
+    return raw + '\n\n【原因】请求没能发出去：网络异常，或域名被微信拦下。' +
+      '\n【办法】先确认手机能正常上网；再检查 request 合法域名是否包含云函数请求域名。'
+  }
+  return raw
+}
+
+/**
  * 调用云函数
  * @param {string} name 云函数名
  * @param {Object} data 入参
+ * @param {Object} [options] { timeout } 超时毫秒，默认 8000；登录等冷启动较慢的调用可调大
  * @returns {Promise<*>} 成功返回 data 字段，失败抛出 Error
  */
-function callCloud(name, data = {}) {
+function callCloud(name, data = {}, options = {}) {
+  const timeoutMs = Number(options.timeout) > 0 ? Number(options.timeout) : 8000
   return new Promise((resolve, reject) => {
+    // 仅当确认「云空间不可用」（uniCloud 不存在）时才直接拒绝
+    if (cloudAvailable === false) {
+      reject(cloudError('云空间不可用：请在 HBuilderX 中右键 uniCloud-aliyun → 关联云服务空间'))
+      return
+    }
     // 未开通云空间 / 未关联服务空间时 uniCloud 不存在，直接标记不可用
     if (typeof uniCloud === 'undefined' || !uniCloud || !uniCloud.callFunction) {
       cloudAvailable = false
-      reject(new Error('uniCloud 不可用'))
+      reject(cloudError('uniCloud 不可用：请在 HBuilderX 中右键 uniCloud-aliyun → 关联云服务空间'))
       return
     }
+    // 已知该函数不存在，不再反复发无效请求
+    if (missingFunctions.has(name)) {
+      reject(new Error('云函数 ' + name + ' 不存在，请先在 HBuilderX 中右键该函数 → 上传部署'))
+      return
+    }
+    const timer = setTimeout(() => {
+      // 超时只让本次调用失败，不锁定云空间：冷启动和网络抖动都会超时，下次仍要重试
+      reject(cloudError('云函数 ' + name + ' 调用超时（' + timeoutMs + 'ms）'))
+    }, timeoutMs)
     uniCloud.callFunction({
       name,
       data,
       success: (res) => {
+        clearTimeout(timer)
         const body = res && res.result
         if (!body) {
-          reject(new Error('云函数无返回'))
+          reject(cloudError('云函数 ' + name + ' 没有返回内容'))
           return
         }
         if (body.code === 0) {
           cloudAvailable = true
           resolve(body.data)
         } else {
-          // 业务错误（例如缺少参数、未配置 Key）不算云空间故障
+          // 业务错误（例如缺少参数、口令校验失败）不算云空间故障
           cloudAvailable = true
           reject(new Error(body.message || '云函数执行失败'))
         }
       },
       fail: (err) => {
-        cloudAvailable = false
-        reject(new Error((err && err.errMsg) || '云函数调用失败'))
+        clearTimeout(timer)
+        const msg = (err && (err.errMsg || err.message)) || '云函数调用失败'
+        // 只有明确「函数不存在」才记住，且只记这个函数；网络抖动等临时失败一律不记
+        if (/not\s*found|不存在|未找到|FUNCTION_NOT_FOUND/i.test(msg)) {
+          missingFunctions.add(name)
+          reject(new Error('云函数 ' + name + ' 不存在，请先在 HBuilderX 中右键该函数 → 上传部署'))
+        } else {
+          reject(cloudError('云函数 ' + name + ' 调用失败：' + explainCloudError(msg)))
+        }
       }
     })
   })
@@ -95,7 +218,106 @@ function callCloud(name, data = {}) {
 /** 数据来源标记：云函数若已自带 engine（例如推荐返回 ai/local），保留它，不覆盖 */
 const fromCloud = (data) => ({ engine: 'cloud', ...(data || {}) })
 
+/**
+ * 本机菜谱查询（带「放开筛选」补救）
+ *
+ * 关键字搜索结果为 0 且还叠着食堂/分类筛选时，放开筛选再搜一次 ——
+ * 这与 searchFallback 的 ②③ 步是同一套逻辑，之所以单独抽出来，
+ * 是因为「云端数据不可信、整库退回本地」时（dishListSource === 'local'）
+ * 也要享受同样的补救，否则纯本地链路依然会「明明列表里有、搜却搜不到」。
+ */
+function localListWithRelax(params) {
+  const local = localDishList(params)
+  if (local.list.length) return local
+  if (params.keyword && (params.canteen || params.category)) {
+    const relaxed = localDishList({ ...params, canteen: undefined, category: undefined })
+    if (relaxed.list.length) return { ...relaxed, relaxedFilters: true }
+  }
+  return local
+}
+
+/**
+ * 关键字搜索一条都没搜到时的补救
+ *
+ * 「明明列表里有这道菜，搜却搜不到」有两类成因，这里依次处理：
+ *
+ * ① **食堂/分类筛选还叠着**：用户从首页某个食堂入口点进来，筛选条上就带着
+ *    「第一食堂」。此时搜「宫保鸡丁」（第二食堂的菜）必然 0 条 ——
+ *    用户只看到「暂无符合条件的菜品」，根本想不到是筛选条件在作怪。
+ *    → 放开筛选在**同一份数据**里重搜一次，并回传 relaxedFilters 让页面把筛选条
+ *      同步清空（否则筛选条显示「第一食堂」、列表却是全部食堂的结果，更让人困惑）。
+ *
+ * ② **云端菜库不可用**（空库 / 未执行数据初始化 / 云函数还是旧版本）：
+ *    此时列表本身就是本机菜谱在顶班，搜索也必须搜同一份数据。
+ *    ⚠️ 反过来，云端菜库若是**真实菜单**，搜不到就是真的没有 ——
+ *       绝不能拿本机种子菜冒充，否则会出现「搜牛肉跳出兰州拉面，
+ *       可自己食堂根本没这道菜」这种更糟的错误结果。
+ *
+ * @param {Object} params 原始查询参数
+ * @param {Object} cloudRes 云端「带筛选 + 关键字」的空结果
+ * @param {boolean} knownRealMenu 云端菜库是否已确认为真实菜单
+ * @returns {Promise<Object>} 结果（可能带 relaxedFilters 标记）
+ */
+async function searchFallback(params, cloudRes, knownRealMenu) {
+  const hasFilter = !!(params.canteen || params.category)
+
+  // ① 放开食堂/分类筛选，云端再搜一次（同一份数据，不会掺进别的菜）
+  if (hasFilter) {
+    try {
+      const data = await callCloud(CLOUD_FN.dish, {
+        action: 'list',
+        ...params,
+        canteen: undefined,
+        category: undefined
+      })
+      if (data && (data.list || []).length) {
+        return { engine: 'cloud', ...data, relaxedFilters: true }
+      }
+    } catch (e) {
+      // 云端这次也不行；若云端菜库是真实菜单，就到此为止，不拿本机菜谱冒充
+      if (knownRealMenu) return cloudRes
+    }
+  }
+
+  // 已知云端菜库是真实菜单 → 空就是空，不用本机种子菜兜底
+  if (knownRealMenu) return cloudRes
+
+  // ② 本机菜谱（先尊重筛选，再放开筛选）
+  const local = localListWithRelax(params)
+  if (local.list.length) return local
+
+  // 真的没有 → 返回云端的空结果，让页面正常显示空态
+  return cloudRes
+}
+
 /* --------------------------------- 菜品接口 --------------------------------- */
+
+/**
+ * 判断一道菜是否命中搜索关键词（本地兜底用）
+ *
+ * ⚠️ 口径必须与云函数 shiyu-dish 的关键字查询**完全一致**：
+ *   菜名 / 标签 / 窗口 / 食堂 / 分类，任一字段包含关键词即命中。
+ * 不一致的后果很隐蔽：同一个关键词，走云端时命中一批、走本地兜底时命中另一批
+ * （或一条都没有），用户看到的就是「有时候搜不到，有时候搜出来别的菜」。
+ *
+ * 刻意**不包含 description**：描述里的无关词会把不相干的菜带出来
+ * （例：大盘鸡的描述提到「皮带面」，搜「面」就会命中它）。
+ * 食材请靠 tags —— 那是结构化字段，比描述里的自然语言准得多。
+ *
+ * @param {Object} d 菜品
+ * @param {string} kw 已小写化的关键词
+ * @returns {boolean}
+ */
+function dishMatchesKeyword(d, kw) {
+  if (!d || !kw) return false
+  const parts = [d.name, d.window, d.canteen, d.category]
+  // 标签逐个作为独立字符串参与匹配，不能拼成一个长串：
+  // MongoDB 里正则作用于数组字段时是「任一元素命中即命中」，
+  // 拼成长串会让「辣 牛肉」这种带空格的词在本地跨两个标签命中、在云端一条都搜不到 ——
+  // 又变成「同一个词两条链路结果不同」。
+  if (Array.isArray(d.tags)) parts.push(...d.tags)
+  return parts.some((x) => typeof x === 'string' && x && x.toLowerCase().includes(kw))
+}
 
 /** 本地菜品列表（支持与云函数一致的筛选/分页语义） */
 function localDishList(params = {}) {
@@ -112,11 +334,7 @@ function localDishList(params = {}) {
   let list = LOCAL_DISHES.filter((d) => d.status === 1)
   if (keyword) {
     const kw = String(keyword).trim().toLowerCase()
-    list = list.filter(
-      (d) =>
-        d.name.toLowerCase().includes(kw) ||
-        (d.description || '').toLowerCase().includes(kw)
-    )
+    list = list.filter((d) => dishMatchesKeyword(d, kw))
   }
   if (canteen) list = list.filter((d) => d.canteen === canteen)
   if (category) list = list.filter((d) => d.category === category)
@@ -204,28 +422,70 @@ export const dishApi = {
    */
   async list(params = {}) {
     // 上一页已经判定云端不可用，本次一致沿用本地，保证分页连续
-    if (dishListSource === 'local') return localDishList(params)
+    if (dishListSource === 'local') return localListWithRelax(params)
+
+    // 本次请求开始前，是否已经确认云端菜库就是真实菜单（决定能不能用本机菜谱兜底）
+    const knownRealMenu = cloudMenuTrusted === true
 
     try {
       const data = await callCloud(CLOUD_FN.dish, { action: 'list', ...params })
       const res = { engine: 'cloud', ...(data || {}) }
       const isFirstPage = !params.page || Number(params.page) === 1
-      // 用户主动搜索时，空结果是真实结果，不做兜底掩盖
-      if (isFirstPage && !params.keyword && !isCloudDishDataTrustworthy(res)) {
-        // 持久性状况（库空 / 陈旧数据）：锁定本地，保证后续翻页连续
-        dishListSource = 'local'
-        return localDishList(params)
+      // 不带筛选、不带关键字的第一页 = 完整菜单 → 用它的自洽性判断云端菜库是否真实
+      if (isFirstPage && !params.keyword) {
+        cloudMenuTrusted = isCloudDishDataTrustworthy(res)
+        if (!cloudMenuTrusted) {
+          // 持久性状况（库空 / 陈旧数据）：锁定本地，保证后续翻页连续
+          dishListSource = 'local'
+          return localDishList(params)
+        }
+      }
+      // 关键字搜索：一条都没搜到 → 补救（见 searchFallback 注释）
+      if (params.keyword && isFirstPage && !((res.list || []).length)) {
+        return await searchFallback(params, res, knownRealMenu)
       }
       return res
     } catch (e) {
+      // 云端菜库已确认是真实菜单时，关键字搜索绝不拿本机种子菜冒充搜索结果
+      if (params.keyword && knownRealMenu) throw e
       // 临时故障（网络抖动等）：不锁定，下次仍重试云端
-      return localDishList(params)
+      return localListWithRelax(params)
+    }
+  },
+
+  /**
+   * 按 id 批量取菜品（收藏页用）
+   *
+   * 收藏只是一串 id（存在本机），逐个调 detail 会发 N 次请求，
+   * 所以云函数提供了 byIds 动作一次取回，并保持传入顺序。
+   * 云端不可用时用本机菜谱兜底，保证离线也能看到收藏。
+   */
+  async byIds(ids) {
+    const list = (Array.isArray(ids) ? ids : []).map((x) => String(x || '').trim()).filter(Boolean)
+    if (!list.length) return { list: [], engine: 'local' }
+
+    try {
+      const data = await callCloud(CLOUD_FN.dish, { action: 'byIds', ids: list })
+      const rows = (data && data.list) || []
+      if (rows.length) return { ...fromCloud(data), list: rows }
+      // 云端一条都没查到：可能是库空 / 还没初始化 → 退回本机菜谱
+      throw new Error('云端没有匹配的菜品')
+    } catch (e) {
+      const byId = new Map()
+      LOCAL_DISHES.forEach((d) => {
+        if (d.status === 1) byId.set(String(d.id), d)
+      })
+      const local = []
+      list.forEach((id) => {
+        const hit = byId.get(id)
+        if (hit) local.push(hit)
+      })
+      return { list: local, total: local.length, engine: 'local' }
     }
   },
 
   /** 菜品详情 */
-  async detail(id) {
-    if (!id) throw new Error('缺少菜品 id')
+  async detail(id) {    if (!id) throw new Error('缺少菜品 id')
     try {
       return fromCloud(await callCloud(CLOUD_FN.dish, { action: 'detail', id }))
     } catch (e) {
@@ -309,6 +569,25 @@ export const dishApi = {
   },
 
   /**
+   * 批量把菜品图片改写成云存储 fileID（管理端）
+   *
+   * 客户端负责逐张上传拿到 fileID，这里一次性批量写回云端；
+   * 图片迁移的完整流程见 common/cloud-images.js。
+   */
+  async setImages(items, options = {}) {
+    const list = Array.isArray(items) ? items : []
+    if (!list.length) return { updated: 0, failed: [], total: 0 }
+    return fromCloud(
+      await callCloud(
+        CLOUD_FN.dish,
+        { action: 'setImages', items: list, token: getAdminToken() },
+        // 批量更新比单条查询慢，给足超时（云函数侧超时 30 秒）
+        { timeout: Number(options.timeout) > 0 ? Number(options.timeout) : 20000 }
+      )
+    )
+  },
+
+  /**
    * 重置菜品列表的数据源锁定
    *
    * list 在判定云端菜品库为空/陈旧后会锁定本地以保证翻页连续；
@@ -334,6 +613,29 @@ function pushHistory(pref, summary) {
     uni.setStorageSync(STORAGE.history, list.slice(0, 20))
   } catch (e) {
     // 存储失败不影响主流程
+  }
+
+  // 累计次数单独存：history 只保留最近 20 条，不能用它的长度当总次数
+  try {
+    const n = Number(uni.getStorageSync(STORAGE.recommendCount)) || 0
+    uni.setStorageSync(STORAGE.recommendCount, n + 1)
+  } catch (e) {
+    // 忽略
+  }
+}
+
+/**
+ * 累计推荐次数（「我的」页数据统计用）
+ *
+ * 口径：**每一次推荐请求**都算，包括云端大模型、云端规则引擎与本机规则引擎。
+ * 不叫「大模型调用次数」是因为后两种兜底也是用户眼里的一次「AI 推荐」，
+ * 真要区分调用来源需要另存计数器，目前没有必要。
+ */
+export function getRecommendCount() {
+  try {
+    return Number(uni.getStorageSync(STORAGE.recommendCount)) || 0
+  } catch (e) {
+    return 0
   }
 }
 
@@ -642,6 +944,127 @@ export function saveAdminToken(token) {
   }
 }
 
+/** 清除本机管理口令（退出管理员 / 口令失效时调用） */
+export function clearAdminToken() {
+  try {
+    uni.removeStorageSync(STORAGE.adminToken)
+  } catch (e) {
+    // 忽略
+  }
+}
+
+/**
+ * 管理员认证（管理端）
+ *
+ * 云端模型：`shiyu-config` 里存的是管理口令的 SHA-256 摘要，
+ * 客户端只提交明文口令、由云函数校验（见 common/shiyu-common 的 verifyAdminToken）。
+ * 因此本机存的也是这个口令本身，而不是服务端签发的凭证。
+ *
+ * 安全边界：本机的 role:'admin' 只能由一次认证成功写入，
+ * 登录页不提供任何「自选角色」的入口，所以普通同学无法把自己变成管理员。
+ */
+export const adminAuthApi = {
+  /**
+   * 管理员登录
+   * @param {string} passphrase 管理口令
+   * @returns {Promise<{ok:boolean, initialized:boolean, engine:string}>}
+   */
+  async login(passphrase) {
+    const value = String(passphrase || '').trim()
+    if (!value) throw new Error('请输入管理口令')
+
+    // 先让云端确认口令正确，再落盘 —— 避免把错口令存下来
+    const data = await callCloud(
+      CLOUD_FN.config,
+      { action: 'verify', token: value },
+      { timeout: 15000 }
+    )
+    saveAdminToken(value)
+
+    const profile = userApi.getProfile() || {}
+    userApi.saveProfile({
+      role: 'admin',
+      nickname: profile.nickname || '管理员',
+      avatar: profile.avatar || '😋'
+    })
+
+    return fromCloud({
+      ok: true,
+      initialized: !!(data && data.initialized),
+      using_default_password: false
+    })
+  },
+
+  /**
+   * 校验本机口令是否仍然有效（后台各页进入时调用）
+   * 口令被改过 / 从未登录都会失败
+   */
+  async verify() {
+    const token = getAdminToken()
+    if (!token) return { ok: false, reason: '尚未登录管理员账号' }
+    try {
+      await callCloud(CLOUD_FN.config, { action: 'verify', token }, { timeout: 15000 })
+      return { ok: true, username: '管理员' }
+    } catch (e) {
+      return {
+        ok: false,
+        reason: (e && e.message) || '管理口令校验失败',
+        // 连不上云端 ≠ 口令错误：前者不能把管理员锁在门外
+        offline: !!(e && e.cloudDown)
+      }
+    }
+  },
+
+  /** 退出管理员：清本机口令与管理员身份 */
+  logout() {
+    clearAdminToken()
+    try {
+      const profile = userApi.getProfile()
+      if (profile && profile.role === 'admin') {
+        userApi.saveProfile({ role: 'user' })
+      }
+    } catch (e) {
+      // 忽略
+    }
+  }
+}
+
+/* ------------------------------ 偏好 → 一句话 ------------------------------ */
+
+/** 把选项数组（可能是纯字符串，也可能是 {label,value}）转成纯中文词 */
+function toPrefWords(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((item) => {
+      if (typeof item === 'string') return item
+      if (item && typeof item === 'object') return item.label || item.value || ''
+      return ''
+    })
+    .filter((s) => typeof s === 'string' && s)
+}
+
+/**
+ * 把偏好对象转成一句可以直接跟 AI 说的话
+ *
+ * 用于首页「快捷口味」点一下之后，到推荐页回填输入框 ——
+ * 推荐页是 tabBar 页，switchTab 不能带 query，只能靠本地暂存传偏好过来。
+ * 兼容两种情况：偏好里存的是中文词（当前 constants 的形态），或历史遗留的 code。
+ *
+ * @param {Object} pref
+ * @returns {string} 例如「想吃辣的，不要香菜，15元以内」
+ */
+export function buildPrefSentence(pref = {}) {
+  const tastes = toPrefWords(pref.taste)
+  const allergies = toPrefWords(pref.allergies)
+  const parts = []
+  if (tastes.length) parts.push('想吃' + tastes.join('、') + '的')
+  if (allergies.length) parts.push('不要' + allergies.join('、'))
+  if (pref.budget && Number(pref.budget) < 999) parts.push(pref.budget + '元以内')
+  if (pref.canteen) parts.push('在' + pref.canteen)
+  if (parts.length && pref.meal_type) parts.push(pref.meal_type + '吃')
+  return parts.length ? parts.join('，') : ''
+}
+
 /** 云函数返回的是否为管理口令相关错误（这类错误不能静默走本地兜底，否则页面会假装成功） */
 function isAdminAuthError(e) {
   return ((e && e.message) || '').indexOf('口令') >= 0
@@ -728,30 +1151,69 @@ export const userApi = {
   },
 
   /**
-   * 微信登录（可选）：拿到 code 后交给云函数换 openid。
-   * 未关联云空间或非微信端会直接失败，此时由调用方展示「本机体验」。
+   * 微信登录（可选能力）：拿到 code 后交给云函数换 openid。
+   *
+   * 失败原因必须**各不相同**：以前无论什么原因，登录页都统一显示
+   * 「当前环境不支持微信登录」，把「不是小程序端」「用户取消了授权」
+   * 「云函数没上传」「没配 AppSecret」混成同一句话，完全没法排查。
+   * 这里按原因抛出不同的错误信息，由页面原样展示。
+   *
+   * 注意：只有微信小程序能拿到 code；H5 / App 端直接给明确原因。
    */
   async wechatLogin() {
+    // #ifndef MP-WEIXIN
+    throw new Error('当前不是微信小程序环境（H5 / App 端拿不到微信授权码），请手动填写昵称后进入。')
+    // #endif
+
+    // #ifdef MP-WEIXIN
     const code = await new Promise((resolve, reject) => {
       uni.login({
         provider: 'weixin',
-        success: (res) => resolve(res.code),
-        fail: (err) => reject(new Error((err && err.errMsg) || '微信登录失败'))
+        success: (res) => {
+          if (res && res.code) resolve(res.code)
+          else reject(new Error('微信没有返回授权码，请重新点击“微信一键登录”。'))
+        },
+        fail: (err) => {
+          const detail = (err && (err.errMsg || err.message)) || ''
+          // 用户在授权弹窗里点了拒绝也是走这里，提示要能区分「取消」和「失败」
+          const cancelled = /cancel|deny|拒绝/i.test(detail)
+          reject(
+            new Error(
+              cancelled
+                ? '你取消了微信授权。想用微信登录的话请重新点击并同意授权。'
+                : '微信授权失败：' + (detail || '未知原因') + '（可在微信开发者工具里查看具体报错）'
+            )
+          )
+        }
       })
     })
+
     // openid 换取由 wechat-login 云函数完成（返回 { code:0, data:{ openid } }）；
-    // 之前误发给 shiyu-config 的 'wx-login' action，那边只支持 get/save/test，
-    // 会返回「未知操作」，导致微信一键登录必然失败。
+    // 云函数返回的业务失败信息（未配置 AppID/Secret、code 过期等）会原样抛出来
     const data = await callCloud(CLOUD_FN.wechat, { code })
     if (data && data.openid) {
       uni.setStorageSync('shiyu_uid', data.openid)
     }
     return data
+    // #endif
+  },
+
+  /**
+   * 微信登录配置自检
+   *
+   * 让云函数回答「WECHAT_APPID / WECHAT_SECRET 配了没有」，**不需要真实 code**。
+   * 登录失败时前端会顺手调它一次，把「到底哪一步没配好」写进提示，
+   * 省得用户拿着「微信登录失败」去猜。
+   * 云函数没上传 / 云空间没关联时这里也会抛错 —— 那本身就是结论。
+   */
+  async checkWechatLogin() {
+    return fromCloud(
+      await callCloud(CLOUD_FN.wechat, { action: 'check' }, { timeout: 8000 })
+    )
   },
 
   /** 清除本地登录态与资料 */
-  clear() {
-    try {
+  clear() {    try {
       uni.removeStorageSync(STORAGE.userInfo)
     } catch (e) {
       // 忽略
@@ -802,6 +1264,11 @@ export default {
   authApi,
   adminApi,
   statsApi,
+  adminAuthApi,
   buildPrefLabel,
-  getAdminToken
+  buildPrefSentence,
+  explainCloudError,
+  getAdminToken,
+  saveAdminToken,
+  clearAdminToken
 }

@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>食遇校园 · 首页预览</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 375px; background: #f7f6f3; }
+  body { -webkit-font-smoothing: antialiased;
+         font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .icon { display: block; flex-shrink: 0; }
+  /* 预览用：模拟 uni-app 的 <text>（行内元素） */
+  span { display: inline; }
+  
+/**
+ * 首页样式
+ *
+ * 全部使用 common/tokens.scss 的设计令牌（uni.scss 已自动注入，无需 import）：
+ * 品牌橙 #ff5a36、暖白画布 #f7f6f3、统一圆角 12px / 16px、
+ * 两档极浅投影。之前这里写死了一堆 #FF6B35 / 10px / emoji 图标，
+ * 是全项目唯一没走设计系统的页面，所以看起来比其它页面「廉价」。
+ */
+
+.home {
+  min-height: 100vh;
+  background: #f7f6f3;
+  padding-bottom: 24px;
+}
+
+/* ==================== 顶部 Banner ==================== */
+
+.banner {
+  position: relative;
+  margin: 8px 12px 0;
+  height: 200px; /* ≈200px */
+  border-radius: 24px; /* 24px */
+  overflow: hidden;
+  /* 图片没加载出来时先铺底色，避免白块闪一下 */
+  background: #f2f0eb;
+  box-shadow: 0 4px 12px rgba(20, 17, 15, 0.06);
+}
+
+.banner-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/**
+ * 左侧压暗层
+ *
+ * 这张实景图平均亮度 192/255（很亮），而且实测照片里有一处接近纯白的高光
+ * （_ui/preview.mjs 会把文字底下的像素量出来）：只叠浅橙蒙版时，
+ * 白字压在最亮处对比度只有 1:1 —— 等于看不见。
+ * 所以左侧先压一层足够强的中性暗色，且一直压到文字列的右端才淡出：
+ *   · 0% 处 0.78、文字列末端约 0.68 → 白字对比度 6:1 以上
+ *   · 86% 之后才降到接近 0 → 右侧仍然保留食堂场景
+ */
+.banner-scrim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    96deg,
+    rgba(20, 17, 15, 0.78) 0%,
+    rgba(20, 17, 15, 0.68) 42%,
+    rgba(20, 17, 15, 0.42) 66%,
+    rgba(20, 17, 15, 0.12) 86%,
+    rgba(20, 17, 15, 0) 100%
+  );
+}
+
+/** 品牌橙渐变：与主题色统一，右侧几乎透明，把食堂场景留出来 */
+.banner-tint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    96deg,
+    rgba(255, 90, 54, 0.44) 0%,
+    rgba(255, 90, 54, 0.32) 46%,
+    rgba(255, 90, 54, 0.14) 74%,
+    rgba(255, 90, 54, 0.02) 100%
+  );
+}
+
+/* 文字左侧排列，右侧留给食堂场景 */
+.banner-body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* 右侧留出足够空间（180pt），文字列只占 Banner 左侧约一半，
+     这样白字始终落在被压暗的区域内，右侧照片保持干净 */
+  padding: 0 180px 0 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.banner-hello {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 499.5px;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+
+.banner-hello-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.banner-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 1px;
+  line-height: 1.15;
+  text-shadow: 0 1px 4px rgba(20, 17, 15, 0.4);
+}
+
+.banner-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 3px;
+  margin-top: 6px;
+  text-shadow: 0 1px 4px rgba(20, 17, 15, 0.4);
+}
+
+.banner-slogan {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.86);
+  margin-top: 11px;
+  line-height: 1.55;
+  text-shadow: 0 1px 4px rgba(20, 17, 15, 0.4);
+}
+
+/* ==================== 搜索栏（悬浮在 Banner 底部） ==================== */
+
+.search-wrap {
+  position: relative;
+  z-index: 3;
+  margin: -24px 12px 0;
+}
+
+.search-box {
+  height: 48px;
+  background: #ffffff;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  box-shadow: 0 6px 16px rgba(20, 17, 15, 0.1);
+}
+
+.search-placeholder {
+  font-size: 14px;
+  color: #b8b2aa;
+  margin-left: 8px;
+}
+
+/* ==================== AI 推荐主入口 ==================== */
+
+.ai-card {
+  margin: 14px 12px 0;
+  padding: 14px 16px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 6px rgba(20, 17, 15, 0.03);
+  border: 0.5px solid #ffd9cc;
+}
+
+.ai-head {
+  display: flex;
+  align-items: center;
+}
+
+.ai-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff5a36, #ff8a5c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(255, 90, 54, 0.24);
+}
+
+.ai-headtext {
+  flex: 1;
+  margin-left: 10px;
+}
+
+.ai-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #14110f;
+  display: block;
+}
+
+.ai-desc {
+  font-size: 12px;
+  color: #8a8580;
+  margin-top: 4px;
+  display: block;
+}
+
+.ai-facts {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ai-fact {
+  font-size: 11px;
+  color: #ff5a36;
+  background: #fff1ec;
+  border-radius: 499.5px;
+  padding: 4px 10px;
+  margin: 0 6px 6px 0;
+}
+
+/* 橙色渐变主按钮 */
+.ai-btn {
+  margin-top: 6px;
+  height: 44px;
+  background: linear-gradient(135deg, #ff5a36, #ff8a5c);
+  border-radius: 499.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(255, 90, 54, 0.24);
+}
+
+.ai-btn-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin-right: 4px;
+}
+
+.quick-area {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 0.5px solid #eeece7;
+}
+
+.quick-tip {
+  font-size: 11px;
+  color: #8a8580;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.quick-tags {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.quick-tag {
+  font-size: 12px;
+  color: #ff5a36;
+  background: #fff1ec;
+  border-radius: 499.5px;
+  padding: 5px 13px;
+  margin: 0 8px 8px 0;
+}
+
+/* ==================== 通用区块 ==================== */
+
+.section {
+  margin: 14px 12px 0;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 6px rgba(20, 17, 15, 0.03);
+}
+
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sec-title {
+  display: flex;
+  align-items: center;
+}
+
+.sec-title-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #14110f;
+  margin-left: 6px;
+}
+
+.sec-more {
+  display: flex;
+  align-items: center;
+}
+
+.sec-more-text {
+  font-size: 12px;
+  color: #8a8580;
+  margin-right: 2px;
+}
+
+/* 横向滚动条隐藏（部分机型会画一条灰线，影响观感） */
+.rail {
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* 让横向列表能贴着卡片边缘滚出去，两端又不显得切口生硬 */
+.rail {
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+
+/* ==================== 今日热门 ==================== */
+
+.hot-card {
+  display: inline-block;
+  width: 128px;
+  margin-right: 10px;
+  vertical-align: top;
+}
+
+.hot-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #14110f;
+  margin-top: 8px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hot-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
+.hot-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ff5a36;
+}
+
+/* 评分：图标 + 数字，比整行橙色更轻 */
+.score {
+  display: flex;
+  align-items: center;
+}
+
+.score-text {
+  font-size: 11px;
+  color: #8a8580;
+  margin-left: 3px;
+}
+
+/* ==================== 高分红榜 ==================== */
+
+.rank-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 0.5px solid #eeece7;
+}
+
+.rank-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.rank-num {
+  width: 22px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #b8b2aa;
+  flex-shrink: 0;
+}
+
+.rank-num.rank-top {
+  color: #ff5a36;
+}
+
+.rank-info {
+  flex: 1;
+  overflow: hidden;
+  margin: 0 10px;
+}
+
+.rank-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #14110f;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-loc {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.rank-loc-text {
+  font-size: 11px;
+  color: #b8b2aa;
+  margin-left: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-tags {
+  margin-top: 6px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  color: #8a8580;
+  background: #f2f0eb;
+  border-radius: 4px;
+  padding: 2px 7px;
+  margin-right: 5px;
+}
+
+.rank-right {
+  text-align: right;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.rank-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ff5a36;
+  display: block;
+}
+
+.score-right {
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+/* ==================== 新品尝鲜 ==================== */
+
+.new-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.new-item {
+  width: 100px;
+  margin-bottom: 14px;
+}
+
+.new-thumb {
+  position: relative;
+}
+
+.new-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  background: #ff5a36;
+  border-radius: 10px 0 10px 0;
+  padding: 2px 7px;
+  letter-spacing: 0.5px;
+}
+
+.new-name {
+  font-size: 12px;
+  color: #4a443f;
+  margin-top: 7px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-price {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ff5a36;
+  margin-top: 2px;
+  display: block;
+}
+
+/* ==================== 状态与提示 ==================== */
+
+.state-box {
+  margin: 14px 12px 0;
+  padding: 36px 16px;
+  background: #ffffff;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 1px 6px rgba(20, 17, 15, 0.03);
+}
+
+.state-emoji {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.state-text {
+  font-size: 13px;
+  color: #8a8580;
+}
+
+.state-retry {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #ff5a36;
+  border: 0.5px solid #ffd9cc;
+  border-radius: 499.5px;
+  padding: 5px 20px;
+}
+
+.data-hint {
+  padding: 12px 16px 0;
+  text-align: center;
+}
+
+.data-hint-text {
+  font-size: 11px;
+  color: #b8b2aa;
+  line-height: 16px;
+}
+
+</style></head>
+<body>
+<div class="home" style="padding-top:44px">
+
+  <!-- 模拟 iOS 状态栏（真机上由系统绘制） -->
+  <div style="position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;
+              justify-content:space-between;padding:0 22px;font-size:14px;font-weight:600;color:#14110f">
+    <span>9:41</span><span>●●● ▮</span>
+  </div>
+
+  <!-- ==================== 顶部视觉 Banner ==================== -->
+  <div class="banner">
+    <img class="banner-img" src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/banner/canteen.jpg">
+    <div class="banner-scrim"></div>
+    <div class="banner-tint"></div>
+    <div class="banner-body">
+      <div class="banner-hello"><span class="banner-hello-text">下午好，同学 👋</span></div>
+      <span class="banner-title">食遇校园</span>
+      <span class="banner-sub">AI 食堂推荐</span>
+      <span class="banner-slogan">不知道吃什么？让 AI 帮你决定</span>
+    </div>
+  </div>
+
+  <!-- ==================== 搜索栏 ==================== -->
+  <div class="search-wrap">
+    <div class="search-box">
+      <img class="icon" style="width:17px;height:17px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M11%2019a8%208%200%20100-16%208%208%200%20000%2016zM21%2021l-4.35-4.35%22%2F%3E%3C%2Fsvg%3E">
+      <span class="search-placeholder">搜索菜品、食堂……</span>
+    </div>
+  </div>
+
+  <!-- ==================== AI 推荐主入口 ==================== -->
+  <div class="ai-card">
+    <div class="ai-head">
+      <div class="ai-mark"><img class="icon" style="width:19px;height:19px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M11.5%203l1.6%204.6L17.7%209l-4.6%201.4L11.5%2015l-1.6-4.6L5.3%209l4.6-1.4L11.5%203zM18.4%2013.6l.8%202.2%202.2.8-2.2.8-.8%202.2-.8-2.2-2.2-.8%202.2-.8.8-2.2z%22%2F%3E%3C%2Fsvg%3E"></div>
+      <div class="ai-headtext">
+        <span class="ai-title">不知道吃啥？交给 AI</span>
+        <span class="ai-desc">说口味 · 报预算 · 忌口自动规避</span>
+      </div>
+    </div>
+    <div class="ai-facts">
+      <span class="ai-fact">现在是晚餐时间</span>
+      <span class="ai-fact">今日口味</span>
+      <span class="ai-fact">预算</span>
+      <span class="ai-fact">忌口</span>
+      <span class="ai-fact">热门排行</span>
+    </div>
+    <div class="ai-btn">
+      <span class="ai-btn-text">立即推荐</span><img class="icon" style="width:17px;height:17px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%205l7%207-7%207%22%2F%3E%3C%2Fsvg%3E">
+    </div>
+    <div class="quick-area">
+      <span class="quick-tip">快捷口味（点一下直接推荐）</span>
+      <div class="quick-tags">
+        <span class="quick-tag">辣</span>
+        <span class="quick-tag">麻辣</span>
+        <span class="quick-tag">清淡</span>
+        <span class="quick-tag">咸香</span>
+        <span class="quick-tag">甜</span>
+        <span class="quick-tag">酸</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 今日热门 ==================== -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-title"><img class="icon" style="width:17px;height:17px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2022c4%200%206-2.7%206-6%200-4.5-6-13-6-13S6%2011.5%206%2016c0%203.3%202%206%206%206zM12%2018a2%202%200%20002-2c0-1.5-2-4-2-4s-2%202.5-2%204a2%202%200%20002%202z%22%2F%3E%3C%2Fsvg%3E"><span class="sec-title-text">今日热门</span></div>
+      <div class="sec-more"><span class="sec-more-text">查看更多</span><img class="icon" style="width:12px;height:12px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238a8580%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%205l7%207-7%207%22%2F%3E%3C%2Fsvg%3E"></div>
+    </div>
+    <div class="rail">
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d041.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">红烧牛肉饭</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥18</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.9</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d020.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">黄焖鸡米饭</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥15</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.7</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d015.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">牛肉拉面</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥14</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.8</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d005.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">麻辣烫</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥12</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.5</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d009.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">番茄炒蛋</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥7</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.7</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d002.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">宫保鸡丁</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥12</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.8</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d006.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">重庆小面</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥9</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.6</span></div>
+        </div>
+      </div>
+      <div class="hot-card">
+        <div class="dish-image" style="width:128px;height:96px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d025.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <span class="hot-name">小笼包</span>
+        <div class="hot-meta">
+          <span class="hot-price">¥8</span>
+          <div class="score"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.7</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 高分红榜 ==================== -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-title"><img class="icon" style="width:17px;height:17px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="sec-title-text">高分红榜</span></div>
+    </div>
+    <div class="rank-list">
+      <div class="rank-item">
+        <span class="rank-num rank-top">1</span>
+        <div class="dish-image" style="width:56px;height:56px;border-radius:8px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d041.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div class="rank-info">
+          <span class="rank-name">红烧牛肉饭</span>
+          <div class="rank-loc"><img class="icon" style="width:10px;height:10px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b8b2aa%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s7-5.6%207-11a7%207%200%2010-14%200c0%205.4%207%2011%207%2011zM12%2012a2%202%200%20100-4%202%202%200%20000%204z%22%2F%3E%3C%2Fsvg%3E"><span class="rank-loc-text">第二食堂 · 快餐窗口</span></div>
+          <div class="rank-tags"><span class="tag">咸香</span><span class="tag">下饭</span><span class="tag">牛肉</span></div>
+        </div>
+        <div class="rank-right">
+          <span class="rank-price">¥18</span>
+          <div class="score score-right"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.9</span></div>
+        </div>
+      </div>
+      <div class="rank-item">
+        <span class="rank-num rank-top">2</span>
+        <div class="dish-image" style="width:56px;height:56px;border-radius:8px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d012.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div class="rank-info">
+          <span class="rank-name">蒜蓉蒸虾</span>
+          <div class="rank-loc"><img class="icon" style="width:10px;height:10px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b8b2aa%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s7-5.6%207-11a7%207%200%2010-14%200c0%205.4%207%2011%207%2011zM12%2012a2%202%200%20100-4%202%202%200%20000%204z%22%2F%3E%3C%2Fsvg%3E"><span class="rank-loc-text">第三食堂 · 粤菜窗口</span></div>
+          <div class="rank-tags"><span class="tag">清淡</span><span class="tag">鲜嫩</span><span class="tag">海鲜</span></div>
+        </div>
+        <div class="rank-right">
+          <span class="rank-price">¥20</span>
+          <div class="score score-right"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.9</span></div>
+        </div>
+      </div>
+      <div class="rank-item">
+        <span class="rank-num rank-top">3</span>
+        <div class="dish-image" style="width:56px;height:56px;border-radius:8px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d002.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div class="rank-info">
+          <span class="rank-name">宫保鸡丁</span>
+          <div class="rank-loc"><img class="icon" style="width:10px;height:10px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b8b2aa%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s7-5.6%207-11a7%207%200%2010-14%200c0%205.4%207%2011%207%2011zM12%2012a2%202%200%20100-4%202%202%200%20000%204z%22%2F%3E%3C%2Fsvg%3E"><span class="rank-loc-text">第一食堂 · 川味窗口</span></div>
+          <div class="rank-tags"><span class="tag">辣</span><span class="tag">甜</span><span class="tag">酸</span></div>
+        </div>
+        <div class="rank-right">
+          <span class="rank-price">¥12</span>
+          <div class="score score-right"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.8</span></div>
+        </div>
+      </div>
+      <div class="rank-item">
+        <span class="rank-num">4</span>
+        <div class="dish-image" style="width:56px;height:56px;border-radius:8px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d010.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div class="rank-info">
+          <span class="rank-name">土豆炖牛肉</span>
+          <div class="rank-loc"><img class="icon" style="width:10px;height:10px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b8b2aa%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s7-5.6%207-11a7%207%200%2010-14%200c0%205.4%207%2011%207%2011zM12%2012a2%202%200%20100-4%202%202%200%20000%204z%22%2F%3E%3C%2Fsvg%3E"><span class="rank-loc-text">第一食堂 · 家常窗口</span></div>
+          <div class="rank-tags"><span class="tag">咸香</span><span class="tag">下饭</span><span class="tag">牛肉</span></div>
+        </div>
+        <div class="rank-right">
+          <span class="rank-price">¥16</span>
+          <div class="score score-right"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.8</span></div>
+        </div>
+      </div>
+      <div class="rank-item">
+        <span class="rank-num">5</span>
+        <div class="dish-image" style="width:56px;height:56px;border-radius:8px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d015.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div class="rank-info">
+          <span class="rank-name">牛肉拉面</span>
+          <div class="rank-loc"><img class="icon" style="width:10px;height:10px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b8b2aa%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s7-5.6%207-11a7%207%200%2010-14%200c0%205.4%207%2011%207%2011zM12%2012a2%202%200%20100-4%202%202%200%20000%204z%22%2F%3E%3C%2Fsvg%3E"><span class="rank-loc-text">第二食堂 · 面食窗口</span></div>
+          <div class="rank-tags"><span class="tag">汤面</span><span class="tag">咸香</span><span class="tag">养胃</span></div>
+        </div>
+        <div class="rank-right">
+          <span class="rank-price">¥14</span>
+          <div class="score score-right"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.8</span></div>
+        </div>
+      </div>
+      <div class="rank-item">
+        <span class="rank-num">6</span>
+        <div class="dish-image" style="width:56px;height:56px;border-radius:8px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d010.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div class="rank-info">
+          <span class="rank-name">番茄牛腩饭</span>
+          <div class="rank-loc"><img class="icon" style="width:10px;height:10px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b8b2aa%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2021s7-5.6%207-11a7%207%200%2010-14%200c0%205.4%207%2011%207%2011zM12%2012a2%202%200%20100-4%202%202%200%20000%204z%22%2F%3E%3C%2Fsvg%3E"><span class="rank-loc-text">第二食堂 · 快餐窗口</span></div>
+          <div class="rank-tags"><span class="tag">酸</span><span class="tag">咸香</span><span class="tag">下饭</span></div>
+        </div>
+        <div class="rank-right">
+          <span class="rank-price">¥17</span>
+          <div class="score score-right"><img class="icon" style="width:11px;height:11px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203.5l2.6%205.6%206%20.8-4.4%204.2%201.1%206L12%2017.3%206.7%2020l1.1-6L3.4%209.9l6-.8L12%203.5z%22%2F%3E%3C%2Fsvg%3E"><span class="score-text">4.8</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 新品尝鲜 ==================== -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-title"><img class="icon" style="width:17px;height:17px" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ff5a36%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2011h16a8%208%200%2001-8%208%208%208%200%2001-8-8zM9%2011V7M12%2011V6M15%2011V7M3%2021h18%22%2F%3E%3C%2Fsvg%3E"><span class="sec-title-text">新品尝鲜</span></div>
+    </div>
+    <div class="new-grid">
+      <div class="new-item">
+        <div class="new-thumb"><div class="dish-image" style="width:100px;height:75px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d031.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div><span class="new-badge">NEW</span></div>
+        <span class="new-name">照烧鸡腿饭</span>
+        <span class="new-price">¥16</span>
+      </div>
+      <div class="new-item">
+        <div class="new-thumb"><div class="dish-image" style="width:100px;height:75px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d033.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div><span class="new-badge">NEW</span></div>
+        <span class="new-name">鸭血粉丝汤</span>
+        <span class="new-price">¥10</span>
+      </div>
+      <div class="new-item">
+        <div class="new-thumb"><div class="dish-image" style="width:100px;height:75px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d012.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div><span class="new-badge">NEW</span></div>
+        <span class="new-name">蒜蓉蒸虾</span>
+        <span class="new-price">¥20</span>
+      </div>
+      <div class="new-item">
+        <div class="new-thumb"><div class="dish-image" style="width:100px;height:75px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d026.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div><span class="new-badge">NEW</span></div>
+        <span class="new-name">螺蛳粉</span>
+        <span class="new-price">¥13</span>
+      </div>
+      <div class="new-item">
+        <div class="new-thumb"><div class="dish-image" style="width:100px;height:75px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d038.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div><span class="new-badge">NEW</span></div>
+        <span class="new-name">鸡胸肉沙拉</span>
+        <span class="new-price">¥13</span>
+      </div>
+      <div class="new-item">
+        <div class="new-thumb"><div class="dish-image" style="width:100px;height:75px;border-radius:10px;"><img src="file:///C:/Users/lenovo/Desktop/mp-01/%E9%A3%9F%E9%81%87%E2%80%94%E2%80%94AI%E6%99%BA%E8%83%BD%E9%A3%9F%E5%A0%82/static/dishes/d038.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div><span class="new-badge">NEW</span></div>
+        <span class="new-name">藜麦蔬菜饭</span>
+        <span class="new-price">¥14</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px"></div>
+</div>
+</body></html>

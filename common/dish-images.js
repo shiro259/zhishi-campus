@@ -11,52 +11,10 @@
  */
 
 /** 生成时间 */
-export const DISH_IMAGES_GENERATED_AT = '2026-10-06 02:18:16'
+export const DISH_IMAGES_GENERATED_AT = '2026-10-06 10:53:22'
 
 /** 实际存在的菜品图片文件名（相对于 static/dishes/），例如 ['d001.jpg'] */
-export const DISH_IMAGE_FILES = [
-  "d001.jpg",
-  "d002.jpg",
-  "d003.jpg",
-  "d004.jpg",
-  "d005.jpg",
-  "d006.jpg",
-  "d007.jpg",
-  "d008.jpg",
-  "d009.jpg",
-  "d010.jpg",
-  "d011.jpg",
-  "d012.jpg",
-  "d013.jpg",
-  "d014.jpg",
-  "d015.jpg",
-  "d016.jpg",
-  "d017.jpg",
-  "d018.jpg",
-  "d019.jpg",
-  "d020.jpg",
-  "d021.jpg",
-  "d022.jpg",
-  "d023.jpg",
-  "d024.jpg",
-  "d025.jpg",
-  "d026.jpg",
-  "d027.jpg",
-  "d028.jpg",
-  "d029.jpg",
-  "d030.jpg",
-  "d031.jpg",
-  "d032.jpg",
-  "d033.jpg",
-  "d034.jpg",
-  "d035.jpg",
-  "d036.jpg",
-  "d037.jpg",
-  "d038.jpg",
-  "d039.jpg",
-  "d040.jpg",
-  "d041.jpg"
-]
+export const DISH_IMAGE_FILES = []
 
 /** 快速查表用的集合 */
 const FILE_SET = new Set(DISH_IMAGE_FILES)

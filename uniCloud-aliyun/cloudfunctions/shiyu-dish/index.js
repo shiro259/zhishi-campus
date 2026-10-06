@@ -26,7 +26,25 @@
  * ============================================================================
  */
 
-const common = require('../common/shiyu-common/index.js');
+// 引用公共模块 shiyu-common。
+// 优先用「模块名」形式：这是 uniCloud 公共模块的标准引用方式，
+// HBuilderX 上传云函数时会自动把依赖的公共模块一并打包进去。
+// 注意不能只用相对路径 —— 上传时只传该函数自己的目录，云端不存在 ../common/ 这个兄弟目录。
+// 但本地目录里两种都成立，所以这里带回退，谁可用用谁。
+let common
+try {
+  // 首选：本目录下的副本。它随云函数一起上传，云端一定存在，
+  // 不依赖「公共模块是否被打包」这件事（上传云函数只传该函数自己的目录）。
+  common = require('./shiyu-common.js')
+} catch (e) {
+  try {
+    // 次选：uniCloud 公共模块名（部分工具链会自动打包 common/ 下的模块）
+    common = require('shiyu-common')
+  } catch (e2) {
+    // 最后：本地开发目录里的相对路径
+    common = require('../common/shiyu-common/index.js')
+  }
+}
 
 const db = uniCloud.database();
 const dbCmd = db.command;
@@ -58,24 +76,13 @@ const DETAIL_FIELD = Object.assign({}, LIST_FIELD, { status: true, create_date: 
 const MAX_PAGE_SIZE = 100;
 const MAX_RANK_LIMIT = 50;
 
-/**
- * 转义正则元字符，避免用户输入 ".*" 之类的关键字造成全表扫描或语法错误
- */
-function escapeRegExp(str) {
-  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+// 关键字搜索的扫描参数（见 scanByKeyword）：
+// 分批取数避免依赖单个 get 的条数上限；总量上限远大于一个食堂的菜品数
+const KEYWORD_SCAN_BATCH = 100;
+const KEYWORD_SCAN_LIMIT = 1000;
 
-/**
- * 构造大小写不敏感的正则查询对象
- * 优先使用 uniCloud 的 db.RegExp，个别环境不支持时退回原生 RegExp
- */
-function buildLikeRegExp(keyword) {
-  const regexp = escapeRegExp(keyword);
-  if (typeof db.RegExp === 'function') {
-    return db.RegExp({ regexp: regexp, options: 'i' });
-  }
-  return new RegExp(regexp, 'i');
-}
+// byIds 单次最多查多少个（收藏页一次要多少给多少，但不能无限）
+const MAX_IDS = 200;
 
 /**
  * 把数据库文档转成前端结构：补一个 id 字段
@@ -106,6 +113,84 @@ function toInt(value, defaultValue, min, max) {
 }
 
 /**
+ * 关键字是否命中某道菜（菜名 / 标签 / 窗口 / 食堂 / 分类）
+ *
+ * ⚠️ 这里**刻意在 JS 里过滤，而不把正则交给数据库**，原因有三：
+ *
+ *   1. `db.RegExp` 在不同环境下的调用方式不一致（部分版本必须 `new`），
+ *      构造失败会让整条查询抛异常 → 云函数返回失败 → 前端只好退回本机菜谱。
+ *      用户看到的就是「搜索有时候搜不到、有时候搜出别的菜」——
+ *      本项目的这个 bug 反复出现，根子就在这里。
+ *   2. 数据库侧正则对**数组字段**（tags）的匹配语义、以及 `dbCmd.or` 嵌套
+ *      `dbCmd.and` 的支持程度，各版本/各空间并不一致，不能依赖。
+ *   3. 在 JS 里过滤可以与前端本地兜底（api/index.js 的 dishMatchesKeyword）
+ *      使用**完全相同的口径与实现**，两条链路结果必然一致 ——
+ *      而「两条链路结果不一致」正是用户感知到的「搜不到 / 搜出别的菜」。
+ *
+ * 菜单量级只有几十道，多扫一批数据的成本可以忽略。
+ * 口径：不搜 description（描述里的无关词会带出不相干的菜）。
+ *
+ * @param {Object} doc 菜品文档
+ * @param {string} kw 已小写化的关键词
+ * @returns {boolean}
+ */
+function dishMatchesKeyword(doc, kw) {
+  if (!doc || !kw) return false;
+  var parts = [doc.name, doc.window, doc.canteen, doc.category];
+  // 标签逐个参与匹配：MongoDB 的数组匹配就是「任一元素命中即命中」，
+  // 拼成长串会让带空格的词跨两个标签命中，与数据库行为不一致
+  if (Array.isArray(doc.tags)) {
+    for (var i = 0; i < doc.tags.length; i++) {
+      parts.push(doc.tags[i]);
+    }
+  }
+  for (var j = 0; j < parts.length; j++) {
+    var value = parts[j];
+    if (typeof value === 'string' && value && value.toLowerCase().indexOf(kw) >= 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 关键字搜索：按硬条件分批取数，在 JS 里过滤
+ *
+ * 分批（每次 100 条）而不是一次取完，是为了不依赖单个 get 的条数上限；
+ * 扫描上限 KEYWORD_SCAN_LIMIT 对校园食堂的菜单量级绰绰有余。
+ * 取数时已按 orderBy 排好序，因此过滤后直接切片就是正确的分页结果。
+ */
+async function scanByKeyword(base, kw, orderBy) {
+  const matched = [];
+  let skip = 0;
+
+  while (skip < KEYWORD_SCAN_LIMIT) {
+    let query = db.collection(COLLECTION).where(base);
+    orderBy.forEach(function (item) {
+      query = query.orderBy(item[0], item[1]);
+    });
+
+    const res = await query.field(LIST_FIELD).skip(skip).limit(KEYWORD_SCAN_BATCH).get();
+    const rows = (res && res.data) || [];
+
+    for (let i = 0; i < rows.length; i++) {
+      if (dishMatchesKeyword(rows[i], kw)) {
+        matched.push(withId(rows[i]));
+      }
+    }
+
+    if (rows.length < KEYWORD_SCAN_BATCH) break;
+    skip += KEYWORD_SCAN_BATCH;
+  }
+
+  if (skip >= KEYWORD_SCAN_LIMIT) {
+    console.warn('[shiyu-dish] 关键字搜索已达扫描上限 ' + KEYWORD_SCAN_LIMIT + ' 条，建议给菜品库加索引或改为数据库侧查询');
+  }
+
+  return matched;
+}
+
+/**
  * action = 'list'：条件分页查询菜品列表
  * 返回 { list, total, hasMore }
  */
@@ -115,20 +200,25 @@ async function handleList(payload) {
   const skip = (page - 1) * pageSize;
 
   // 组装 where 条件：只查上架菜品
-  const where = { status: 1 };
+  const base = { status: 1 };
 
-  // 关键字模糊匹配菜品名（防注入：先转义正则元字符）
-  if (payload.keyword && String(payload.keyword).trim() !== '') {
-    where.name = buildLikeRegExp(String(payload.keyword).trim());
-  }
   if (payload.canteen && String(payload.canteen).trim() !== '') {
-    where.canteen = String(payload.canteen).trim();
+    base.canteen = String(payload.canteen).trim();
   }
   if (payload.category && String(payload.category).trim() !== '') {
-    where.category = String(payload.category).trim();
+    base.category = String(payload.category).trim();
   }
 
-  const collection = db.collection(COLLECTION);
+  /**
+   * 关键字模糊匹配
+   *
+   * 覆盖 菜名 / 标签 / 窗口 / 食堂 / 分类 —— 同学们习惯直接搜「辣」「清淡」
+   * 「3号窗口」「第二食堂」这类词，只在菜名里找必然搜不到。
+   * 其中「标签」是结构化的口味与食材（辣、清淡、花生、牛肉…），搜食材靠它最准。
+   *
+   * 具体匹配规则见 dishMatchesKeyword，它在 JS 层实现，与前端本地兜底同一份口径。
+   */
+  const kw = payload.keyword ? String(payload.keyword).trim().toLowerCase() : '';
 
   // 排序策略：
   //   sortByPrice  → 价格升序（管理端比价、学生省钱场景）
@@ -142,13 +232,35 @@ async function handleList(payload) {
   else if (isRatingSort) orderBy = [['rating', 'desc'], ['recommend_count', 'desc']];
   else orderBy = [['recommend_count', 'desc'], ['rating', 'desc']];
 
-  let query = collection.where(where);
+  const collection = db.collection(COLLECTION);
+
+  // ---------- 带关键字：JS 侧过滤后再分页 ----------
+  if (kw) {
+    const matched = await scanByKeyword(base, kw, orderBy);
+    const total = matched.length;
+    const list = matched.slice(skip, skip + pageSize);
+
+    return {
+      code: 0,
+      message: 'success',
+      data: {
+        list: list,
+        total: total,
+        page: page,
+        pageSize: pageSize,
+        hasMore: skip + list.length < total
+      }
+    };
+  }
+
+  // ---------- 不带关键字：交给数据库分页与计数 ----------
+  let query = collection.where(base);
   orderBy.forEach(function (item) {
     query = query.orderBy(item[0], item[1]);
   });
 
   const listRes = await query.field(LIST_FIELD).skip(skip).limit(pageSize).get();
-  const countRes = await collection.where(where).count();
+  const countRes = await collection.where(base).count();
 
   const total = (countRes && countRes.total) || 0;
   const list = (listRes.data || []).map(withId);
@@ -336,6 +448,101 @@ async function handleRemove(payload) {
   return { code: 0, message: '已下架', data: { id: id, status: 0 } };
 }
 
+/**
+ * 批量把菜品图片改写成云存储 fileID（管理端，需要管理口令）
+ *
+ * 用途：把菜品图从「本机 static/ 图片」迁到「uniCloud 云存储」。
+ * 客户端负责逐张上传（拿到 fileID），这里一次性批量写回 —— 只改 image 字段，
+ * 不动名称/价格等其它字段，也不会因为某一条失败而中断整批。
+ *
+ * 入参：{ items: [{ id, image }], token }
+ * 返回：{ updated, failed: [{ id, reason }] }
+ */
+async function handleSetImages(payload) {
+  const auth = await common.verifyAdminToken(db, payload.token || payload.admin_token || '');
+  if (!auth.ok) return { code: -1, message: auth.message };
+
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  if (!items.length) return { code: -1, message: '缺少参数 items' };
+  // 上限保护：一次最多 200 条，避免误传超大数组把函数拖死
+  if (items.length > 200) return { code: -1, message: '单次最多更新 200 条，请分批处理' };
+
+  let updated = 0;
+  const failed = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i] || {};
+    const id = String(item.id || '').trim();
+    const image = String(item.image || '').trim();
+    if (!id) {
+      failed.push({ id: '', reason: '缺少菜品 id' });
+      continue;
+    }
+    if (!image) {
+      failed.push({ id: id, reason: '缺少 image' });
+      continue;
+    }
+    try {
+      const res = await db.collection(COLLECTION).doc(id).update({ image: image });
+      const affected = (res && (res.updated || res.affected)) || 0;
+      if (affected > 0) updated++;
+      else failed.push({ id: id, reason: '菜品不存在或内容无变化' });
+    } catch (e) {
+      failed.push({ id: id, reason: (e && e.message) || '更新失败' });
+    }
+  }
+
+  return {
+    code: 0,
+    message: 'success',
+    data: { updated: updated, failed: failed, total: items.length }
+  };
+}
+
+/**
+ * action = 'byIds'：按 id 批量取菜品（公开读）
+ *
+ * 用途：收藏页要知道你收藏了哪几道菜，而收藏只是一串 id（存在本机）。
+ * 逐个调 detail 会发 N 次请求（40 个收藏就是 40 次），所以这里一次取回。
+ *
+ * 细节：
+ *   · 只返回**上架**的菜（status=1）—— 被下架/删除的收藏自然消失，不报错
+ *   · 保持传入 ids 的顺序（收藏页按收藏时间倒序展示，顺序由调用方决定）
+ *   · 上限 200 个，避免超长请求
+ */
+async function handleByIds(payload) {
+  const raw = Array.isArray(payload.ids) ? payload.ids : [];
+  const ids = [];
+  for (let i = 0; i < raw.length; i++) {
+    const id = String(raw[i] === undefined || raw[i] === null ? '' : raw[i]).trim();
+    if (id && ids.indexOf(id) < 0) ids.push(id);
+  }
+  if (!ids.length) return { code: 0, message: 'success', data: { list: [] } };
+  if (ids.length > MAX_IDS) {
+    return { code: -1, message: '单次最多查询 ' + MAX_IDS + ' 个菜品' };
+  }
+
+  const res = await db
+    .collection(COLLECTION)
+    .where({ _id: dbCmd.in(ids), status: 1 })
+    .field(LIST_FIELD)
+    .limit(ids.length)
+    .get();
+
+  const rows = (res.data || []).map(withId);
+  const byId = {};
+  rows.forEach(function (d) {
+    byId[d.id] = d;
+  });
+
+  const list = [];
+  ids.forEach(function (id) {
+    if (byId[id]) list.push(byId[id]);
+  });
+
+  return { code: 0, message: 'success', data: { list: list } };
+}
+
 exports.main = async (event, context) => {
   const payload = event || {};
   const action = payload.action;
@@ -348,6 +555,8 @@ exports.main = async (event, context) => {
         return await handleList(payload);
       case 'detail':
         return await handleDetail(payload);
+      case 'byIds':
+        return await handleByIds(payload);
       case 'rank':
         return await handleRank(payload);
       case 'canteens':
@@ -358,6 +567,8 @@ exports.main = async (event, context) => {
         return await handleSave(payload);
       case 'remove':
         return await handleRemove(payload);
+      case 'setImages':
+        return await handleSetImages(payload);
       default:
         return { code: -1, message: '未知的 action: ' + action };
     }

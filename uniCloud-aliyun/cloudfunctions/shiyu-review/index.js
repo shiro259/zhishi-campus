@@ -16,7 +16,25 @@
  *   create/update/delete: false —— 全部写操作必须经过本云函数
  */
 
-const common = require('../common/shiyu-common/index.js');
+// 引用公共模块 shiyu-common。
+// 优先用「模块名」形式：这是 uniCloud 公共模块的标准引用方式，
+// HBuilderX 上传云函数时会自动把依赖的公共模块一并打包进去。
+// 注意不能只用相对路径 —— 上传时只传该函数自己的目录，云端不存在 ../common/ 这个兄弟目录。
+// 但本地目录里两种都成立，所以这里带回退，谁可用用谁。
+let common
+try {
+  // 首选：本目录下的副本。它随云函数一起上传，云端一定存在，
+  // 不依赖「公共模块是否被打包」这件事（上传云函数只传该函数自己的目录）。
+  common = require('./shiyu-common.js')
+} catch (e) {
+  try {
+    // 次选：uniCloud 公共模块名（部分工具链会自动打包 common/ 下的模块）
+    common = require('shiyu-common')
+  } catch (e2) {
+    // 最后：本地开发目录里的相对路径
+    common = require('../common/shiyu-common/index.js')
+  }
+}
 
 const db = uniCloud.database();
 

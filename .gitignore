@@ -19,6 +19,14 @@ unpackage/
 .diag-*.mjs
 .seed-*.mjs
 
+# 自检脚本 _search/ 下临时安装的依赖与缓存（node_modules/ 上面已忽略）
+_search/package-lock.json
+_search/.npmcache/
+
+# 首页 UI 用的图片处理 / 预览渲染脚本（_ui/）的依赖与缓存
+_ui/package-lock.json
+_ui/.npmcache/
+
 # python
 *.pyc
 __pycache__/

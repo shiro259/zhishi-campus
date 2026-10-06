@@ -16,7 +16,25 @@
  * 关联：被 ../common/shiyu-common 提供的口令校验与配置读写能力复用。
  */
 
-const common = require('../common/shiyu-common/index.js');
+// 引用公共模块 shiyu-common。
+// 优先用「模块名」形式：这是 uniCloud 公共模块的标准引用方式，
+// HBuilderX 上传云函数时会自动把依赖的公共模块一并打包进去。
+// 注意不能只用相对路径 —— 上传时只传该函数自己的目录，云端不存在 ../common/ 这个兄弟目录。
+// 但本地目录里两种都成立，所以这里带回退，谁可用用谁。
+let common
+try {
+  // 首选：本目录下的副本。它随云函数一起上传，云端一定存在，
+  // 不依赖「公共模块是否被打包」这件事（上传云函数只传该函数自己的目录）。
+  common = require('./shiyu-common.js')
+} catch (e) {
+  try {
+    // 次选：uniCloud 公共模块名（部分工具链会自动打包 common/ 下的模块）
+    common = require('shiyu-common')
+  } catch (e2) {
+    // 最后：本地开发目录里的相对路径
+    common = require('../common/shiyu-common/index.js')
+  }
+}
 
 const db = uniCloud.database();
 
@@ -36,6 +54,8 @@ exports.main = async (event) => {
         return await handleTest(event);
       case 'wx-login':
         return await handleWxLogin(event);
+      case 'verify':
+        return await handleVerifyAdmin(event);
       default:
         return common.fail('未知的 action: ' + action);
     }
@@ -46,12 +66,29 @@ exports.main = async (event) => {
 };
 
 /**
+ * 校验管理口令是否有效
+ *
+ * 供前端「管理员登录」以及后台各页面进入时调用：
+ * 口令正确 → 放行；口令错误 → 明确拒绝。
+ * 复用 common.verifyAdminToken，因此与 save 的行为一致：
+ * 云端尚未初始化口令时，本次提交的口令会成为初始口令。
+ */
+async function handleVerifyAdmin(event) {
+  const token = event.token || event.admin_token || '';
+  if (!token) return common.fail('请输入管理口令');
+  const auth = await common.verifyAdminToken(db, token);
+  if (!auth.ok) return common.fail(auth.message);
+  return common.ok({ ok: true, initialized: !!auth.initialized });
+}
+
+/**
  * 读取配置状态
  * 只返回「是否已配置」与展示用的非敏感字段，api_key 一律用 has_key 布尔值代替。
  */
 async function handleGet() {
   const cfg = await common.loadConfig(db) || {};
   const { apiKey } = await common.loadAiConfig(db);
+  const wechat = await common.loadWechatConfig(db);
 
   let source = 'none';
   if (cfg.api_key) source = 'database';
@@ -65,7 +102,13 @@ async function handleGet() {
     has_key: !!apiKey,
     key_source: source,
     has_admin_token: !!cfg.admin_token,
-    updated_at: cfg.updated_at || cfg.create_date || null
+    updated_at: cfg.updated_at || cfg.create_date || null,
+
+    // 微信登录配置：AppID 不是密钥（它本来就打包在小程序里），回显便于核对；
+    // AppSecret 只回「配没配」与从哪来，**绝不回显明文**
+    wechat_appid: wechat.appid || '',
+    has_wechat_secret: !!wechat.secret,
+    wechat_source: wechat.source
   });
 }
 
@@ -82,6 +125,9 @@ async function handleSave(event) {
   const baseUrl = String(event.base_url || '').trim();
   const model = String(event.model || '').trim();
   const apiKey = String(event.api_key || '').trim();
+  // 微信登录配置（可选）：留空表示「保持原值不变」，与 api_key 一致
+  const wechatAppid = String(event.wechat_appid || '').trim();
+  const wechatSecret = String(event.wechat_secret || '').trim();
 
   if (baseUrl && !/^https?:\/\//i.test(baseUrl)) {
     return common.fail('base_url 必须以 http:// 或 https:// 开头');
@@ -91,6 +137,10 @@ async function handleSave(event) {
   }
   if (provider && PROVIDERS.indexOf(provider) < 0) {
     return common.fail('不支持的 provider：' + provider);
+  }
+  // AppID 基本格式校验：能挡掉「把 AppSecret 填到 AppID 里」这类常见错填
+  if (wechatAppid && !/^wx[0-9a-f]{16}$/i.test(wechatAppid)) {
+    return common.fail('微信 AppID 格式不对：应以 wx 开头、共 18 位（例如 wx77b975b02cb7f1aa）');
   }
 
   // 管理口令校验（未初始化时用本次口令完成初始化）
@@ -104,6 +154,9 @@ async function handleSave(event) {
     model: model
   };
   if (apiKey) data.api_key = apiKey;
+  // 微信配置同样「留空不动原值」：管理员只想改模型时不会把 Secret 清掉
+  if (wechatAppid) data.wechat_appid = wechatAppid;
+  if (wechatSecret) data.wechat_secret = wechatSecret;
 
   await common.upsertConfig(db, data);
 

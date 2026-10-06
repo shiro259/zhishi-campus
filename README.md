@@ -122,22 +122,58 @@
 
 ### 管理员入口
 
-管理员身份**不能自行选择**，必须通过账号口令认证：
+管理员身份**不能自行选择**，必须通过管理口令认证：
 
-1. 登录页（`pages/login/login`）选「管理员」，输入账号与口令
-2. 云函数 `shiyu-config` 校验通过后签发一个 HMAC 签名、7 天过期的凭证
-3. 只有拿到凭证才会写入本机 `role: 'admin'`，管理后台各页进入时也会再向云端验签一次
+1. 登录页（`pages/login/login`）选「管理员」，输入**管理口令**（只有口令，没有用户名）
+2. 云函数 `shiyu-config` 的 `verify` 动作比对 SHA-256 摘要，通过后把本机口令作为凭证保存
+3. 管理后台各页进入时会再向云端验签一次，不通过就退出管理员身份
 
-默认账号 `admin` / 口令 `admin123`，**登录后请立刻到「管理后台 → AI 配置 → 管理员口令」修改**。
-口令以 SHA-256 哈希保存在云端（不存明文），且签名里掺了口令摘要 —— 所以改口令后此前签发的凭证会立即全部失效。
+口令以 SHA-256 哈希保存在云端 `shiyu-config` 集合的 `admin_token` 字段（不存明文）。
+首次使用时会用你输入的口令完成初始化（即第一次输入什么，后续就是什么）。
 
-也可以用云函数环境变量覆盖：`ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_SECRET`
-（配了 `ADMIN_PASSWORD` 就只能去 uniCloud 控制台改口令，页面里的修改会被拒绝并说明原因）。
-
-> 忘记口令的恢复办法：uniCloud 控制台 → 云数据库 → `shiyu-config` → 删掉 `admin_password_hash` 字段，
-> 即会重置回默认口令 `admin123`。
+> 忘记口令的恢复办法：uniCloud 控制台 → 云数据库 → `shiyu-config` → 删掉 `admin_token` 字段，
+> 下次在登录页输入的口令就会成为新的管理口令。
 
 普通同学不需要注册账号：昵称 / 头像 / 口味档案 / 推荐历史都保存在本机，仅用于评价与收藏归属。
+
+### 我的收藏
+
+- **收藏**：菜单页（食堂菜单）每张菜品卡片**右上角的心形**，点一下即收藏，再点取消
+- **查看**：「我的」→「**我的收藏**」（`pages/favorites/favorites`），带收藏数量
+  - 只显示**在架**的菜；被下架/删除的收藏会自动从列表里消失（对应的 id 顺手清掉，收藏数不会虚高）
+  - 可以逐条取消收藏、也可以一次清空（有二次确认）
+  - 取不到云端时用本机菜谱兜底，**离线也看得到收藏**
+- **存储**：收藏只是本机存储里的一串菜品 id（`common/favorites.js`，键 `shiyu_favorites`），
+  **不上云、换设备不同步** —— 与「本机 uid + 无服务端会话」的轻量身份方案保持一致。
+  将来要做多端同步，只要保持 `getFavorites / addFavorite / removeFavorite` 的行为即可平滑迁移。
+
+> 收藏页一次请求取回所有收藏菜品：云函数 `shiyu-dish` 的 `byIds` 动作（保序、只返上架、上限 200），
+> 而不是逐个调 `detail` 发 N 次请求。
+> 回归测试：`node _ui/check-favorites-page.mjs`（含「收藏 → 读取 → 取消 → 清空」端到端）
+
+### 微信一键登录（可选能力）
+
+登录页的「微信一键登录」只做一件事：拿 `openid` 当本机 uid。它**不是认证**，也不会授予管理员权限；
+拿不到时页面会告诉你具体原因，并让你手动填写昵称进入（功能完全一样）。
+
+要让它在微信小程序里真正可用，需要同时满足**三个条件**（缺一个都会失败）：
+
+| # | 条件 | 在哪配 |
+|---|---|---|
+| 1 | 小程序有真实 AppID | `manifest.json` → `mp-weixin.appid`（当前是 `wx77b975b02cb7f1aa`） |
+| 2 | 云函数 `wechat-login` 配了 `WECHAT_APPID` 与 `WECHAT_SECRET` 环境变量 | uniCloud 控制台 → 云函数 → `wechat-login` → 环境变量（AppSecret 在微信公众平台 → 开发管理 → 开发设置） |
+| 3 | `wechat-login` 云函数已上传部署 | HBuilderX 右键该函数 → 上传部署 |
+
+改完环境变量**必须重新部署**该函数才会生效。
+
+> 排查口诀：`wechat-login` 返回的 `message` 会直接显示在弹窗里。
+> 看到「尚未配置」= 第 2 条没做；看到「AppID 无效」= 第 2 条的 AppID 与第 1 条不一致；
+> 看到「code 无效或已过期」= 正常现象（code 只能用一次），重新点一次即可。
+
+非微信端（H5 / App）不会渲染这个按钮 —— `uni.login` 在那里拿不到微信授权码，渲染出来只会白白报错。
+相关实现：`api/index.js` 的 `userApi.wechatLogin()`、`pages/login/login.vue` 的 `wxLogin()`、
+云函数 `uniCloud-aliyun/cloudfunctions/wechat-login/index.js`。
+回归测试：`node _ui/check-wechat-login.mjs`（会把云函数真跑一遍，覆盖缺配置 / 各类微信错误码 / 网络异常）。
 
 ---
 
@@ -174,7 +210,43 @@
 
 ## 八、菜品配图
 
-### 推荐方式：后台上传（无需任何脚本）
+图片有两种存法，`DishImage` 组件两种都支持：
+
+| 存法 | image 字段长什么样 | 说明 |
+|---|---|---|
+| uniCloud 云存储 | `cloud://xxx.yyy/dishes/seed-d001.jpg` | **当前采用**：不占小程序包体，加载走网络 |
+| 小程序包内静态图 | `static/dishes/d001.jpg` | 早期做法：41 张图共 2.6MB，跟着主包发布 |
+
+> **当前状态**：菜品图已迁移到云存储，本机 `static/dishes/` 已删除（`static/` 从 2.72MB 降到 **0.11MB**）。
+> 本机图片的**署名信息**保留在 `scripts/dish-image-credits.json`（来源 Wikimedia Commons，含每张图的作者与协议）——
+> 图片版权义务不会因为换了存储位置而消失，答辩材料里的来源说明用它。
+
+### 一键把菜品图转到云存储
+
+微信小程序主包上限 **2MB**，而 `static/dishes` 里的 41 张图就有 **2.6MB** —— 真机预览/上传体验版会报包体积超限。
+
+管理后台 → **菜品管理** → 顶部「**转云存储**」按钮，一次点击自动完成：
+
+1. 读取全部菜品（自动翻页，云函数单页上限 100），挑出 image 还指向 `static/` 的那些
+2. 逐张上传到云存储（`getImageInfo` 换临时路径，失败则退回读文件内容上传）
+3. 收集 fileID，**一次性批量写回**云端菜品（云函数 `shiyu-dish` 的 `setImages` 动作，只改 `image` 字段）
+
+单张失败不会中断整批，结束后会列出成功/失败数量与失败原因。
+**这个按钮不会删除本机原图** —— 删不删由你决定。
+
+> 相关实现：`common/cloud-images.js`（迁移逻辑）、`pages/admin/dishes.vue`（入口）、
+> `uniCloud-aliyun/cloudfunctions/shiyu-dish/index.js` 的 `handleSetImages`。
+> 回归测试：`node _ui/check-cloud-images.mjs`
+
+### ⚠️ 迁移后不要对云端执行「重置菜品库」
+
+`shiyu-seed` 的种子数据里 image 写的是本机 `static/dishes/*.jpg`，而「**重置菜品库**」会清空后按种子重新写入 ——
+等于把云端图片地址**改回已经删掉的本机路径**，所有菜品会退化成 emoji 占位。
+「数据初始化」（sync 模式）只补缺失、不覆盖已有记录，**不受影响，可以放心用**。
+
+真发生了也不难救：`git checkout -- static/dishes` 从 git 恢复本机图 → 再点一次「转云存储」即可。
+
+### 后台上传（单张，新增/编辑菜品时）
 
 **管理后台 → 菜品管理 → 编辑（或新增）→ 菜品图片 → 📷 上传图片**
 

@@ -1,0 +1,14 @@
+{
+  "name": "shiyu-uitool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "首页 UI 用的图片处理与预览渲染脚本，仅开发用，不参与小程序打包",
+  "scripts": {
+    "banner": "node banner.mjs"
+  },
+  "dependencies": {
+    "@vue/compiler-sfc": "^3.5.43",
+    "sass": "^1.105.1",
+    "sharp": "^0.35.5"
+  }
+}

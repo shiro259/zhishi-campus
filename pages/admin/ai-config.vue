@@ -116,19 +116,71 @@
       </view>
       <text class="form-tip">留空表示不修改云端已保存的 Key；保存成功后输入框会清空，不会回显明文。</text>
 
+      <!-- ==================== 微信登录配置（可选） ====================
+           登录页的「微信一键登录」需要小程序的 AppID 与 AppSecret。
+           填在这里就能用，不必进 uniCloud 控制台配环境变量。 -->
+      <view class="section-split">
+        <text class="split-title">微信登录配置（可选）</text>
+        <text class="split-desc">
+          只影响登录页的「微信一键登录」。不配也能用手动填昵称的方式进入，功能完全一样。
+        </text>
+      </view>
+
       <view class="form-row">
-        <text class="form-label">admin_token</text>
+        <text class="form-label">微信 AppID</text>
         <input
           class="form-control form-input"
           type="text"
-          v-model="adminToken"
-          placeholder="管理口令"
+          v-model="form.wechat_appid"
+          :placeholder="wechatAppidPlaceholder"
           placeholder-style="color:#B8B2AA;font-size:26rpx"
         />
       </view>
       <text class="form-tip">
-        写入配置需要管理口令，默认自动生成并保存在本机（当前：{{ localToken }}）；
-        首次配置、云端尚未设置口令时留空即可。
+        AppID 不是密钥（它本来就打包在小程序里），所以会回显出来便于核对。
+        应与 manifest.json 里 mp-weixin.appid 一致。
+      </text>
+
+      <view class="form-row">
+        <text class="form-label">微信 AppSecret</text>
+        <view class="form-control key-box">
+          <input
+            class="key-input"
+            type="text"
+            :password="!showSecret"
+            v-model="form.wechat_secret"
+            :placeholder="wechatSecretPlaceholder"
+            placeholder-style="color:#B8B2AA;font-size:26rpx"
+          />
+          <text class="key-toggle" @click="toggleShowSecret">{{ showSecret ? '隐藏' : '显示' }}</text>
+        </view>
+      </view>
+      <text class="form-tip">
+        在微信公众平台 → 开发管理 → 开发设置 里获取（生成后只显示一次，请先复制保存）。
+        留空表示不修改云端已保存的值，也<b>绝不会回显明文</b>。
+      </text>
+
+      <!-- 管理口令只在「云端还没有口令」时才需要填。
+           进了本页说明 ensureAdmin 已用本机口令校验通过，保存直接复用它即可，
+           再让用户手填只会造成「保存时口令校验失败」。 -->
+      <view class="form-row" v-if="!cloudHasToken">
+        <text class="form-label">管理口令</text>
+        <input
+          class="form-control form-input"
+          type="text"
+          v-model="adminToken"
+          placeholder="自己设一个，记住它"
+          placeholder-style="color:#B8B2AA;font-size:26rpx"
+        />
+      </view>
+      <text class="form-tip">
+        <template v-if="cloudHasToken">
+          云端已有管理口令，保存时会自动使用你登录时通过校验的那个，无需重复填写。
+        </template>
+        <template v-else>
+          云端还没有口令，<text class="form-tip-strong">必须在这里设一个</text>（记住它，
+          它就是你以后进管理后台的凭据）。
+        </template>
       </text>
 
       <text class="form-tip" v-if="isCustom">已选择「自定义」，请手动填写 base_url 与 model。</text>
@@ -225,8 +277,18 @@ const form = ref({
   provider: 'custom',
   base_url: '',
   model: '',
-  api_key: ''
+  api_key: '',
+  // 微信登录配置（可选）：留空表示不修改云端已保存的值
+  wechat_appid: '',
+  wechat_secret: ''
 })
+
+/** AppSecret 默认打码，点「显示」才亮出来（和 api_key 一样） */
+const showSecret = ref(false)
+
+function toggleShowSecret() {
+  showSecret.value = !showSecret.value
+}
 
 // 云端已配置但不在 AI_PROVIDERS 里的服务商，临时补进下拉列表，保证可以正确回显
 const extraProvider = ref(null)
@@ -261,6 +323,8 @@ const isCustom = computed(() => {
 })
 
 const configured = computed(() => !!(status.value && status.value.configured))
+/** 云端是否已经设过管理口令（决定「管理口令」输入框是否显示） */
+const cloudHasToken = computed(() => !!(status.value && status.value.has_admin_token))
 const statusProvider = computed(() => (status.value && status.value.provider) || '未配置')
 const statusBaseUrl = computed(() => (status.value && status.value.base_url) || '未配置')
 const statusModel = computed(() => (status.value && status.value.model) || '未配置')
@@ -271,6 +335,17 @@ const apiKeyText = computed(() => {
 const apiKeyPlaceholder = computed(() =>
   status.value && status.value.has_key ? '已配置（不显示明文），留空则不修改' : 'sk-xxxxxxxx（仅保存在云端）'
 )
+
+/** 微信 AppID：不是密钥，回显出来便于和小程序 manifest 对照 */
+const wechatAppidPlaceholder = computed(() => {
+  const saved = (status.value && status.value.wechat_appid) || ''
+  return saved || 'wx 开头共 18 位，例如 wx77b975b02cb7f1aa'
+})
+/** 微信 AppSecret：只回「配没配」与来源，绝不回显明文 */
+const wechatSecretPlaceholder = computed(() => {
+  const has = !!(status.value && status.value.has_wechat_secret)
+  return has ? '已配置（不显示明文），留空则不修改' : '微信公众平台 → 开发管理 → 开发设置'
+})
 // api/index.js 在云端不可用时会带回 notice（例如未关联服务空间）
 const statusNotice = computed(() => (status.value && status.value.notice) || '')
 
@@ -328,6 +403,9 @@ function fillForm(data) {
   }
   form.value.base_url = data.base_url || ''
   form.value.model = data.model || ''
+  // 微信 AppID 可以回显（不是密钥）；Secret 只回「配没配」，输入框始终留空
+  form.value.wechat_appid = data.wechat_appid || ''
+  form.value.wechat_secret = ''
 }
 
 function onProviderChange(e) {
@@ -374,22 +452,51 @@ async function onSave() {
     // 留空表示不修改云端已保存的 Key
     const key = form.value.api_key.trim()
     if (key) payload.api_key = key
-    // 管理口令：优先用输入框的值，为空则用手动本机自动生成的口令
-    const token = adminToken.value.trim() || getAdminToken()
+    // 微信登录配置：同样「留空不修改」，避免只想改模型时把 Secret 清掉
+    const wxAppid = form.value.wechat_appid.trim()
+    const wxSecret = form.value.wechat_secret.trim()
+    if (wxAppid) payload.wechat_appid = wxAppid
+    if (wxSecret) payload.wechat_secret = wxSecret
+    // 管理口令怎么取：
+    //
+    // 云端**已有**口令时 —— 用本机那个。进了本页说明 ensureAdmin 已经拿它校验通过了，
+    //   所以它一定能通过 save，不需要也不应该再让用户重填。
+    //   （原来写的是 `typedToken || getAdminToken()`：用户在框里随手填了别的内容
+    //     就会覆盖掉已验证的口令，于是保存时必然报「口令校验失败」。）
+    //
+    // 云端**没有**口令时 —— 必须用用户这次填的，因为 verifyAdminToken 会把本次传入的
+    //   口令当作初始口令落库。这里绝不能回退到本机那串随机生成的值，
+    //   否则云端口令会变成一个没人知道的随机串，管理员从此登不进去。
+    const typedToken = adminToken.value.trim()
+    let token = ''
+    if (cloudHasToken.value) {
+      token = getAdminToken() || typedToken
+    } else {
+      if (!typedToken) {
+        uni.hideLoading()
+        return uni.showModal({
+          title: '请先设置管理口令',
+          content: '云端还没有管理口令。请在上面「管理口令」里自己设一个（记住它），再点保存 —— 这个口令会成为进入管理后台的凭据。',
+          showCancel: false
+        })
+      }
+      token = typedToken
+    }
     if (token) payload.token = token
 
     await configApi.save(payload)
 
-    // 手动填写并校验通过的口令要持久化：评价审核、菜品管理等管理端页面共用这一个口令，
-    // 否则那些页面仍拿本机自动生成的旧口令调用，会一直鉴权失败
-    if (adminToken.value.trim()) {
-      saveAdminToken(adminToken.value.trim())
-      localToken.value = adminToken.value.trim()
+    // 初始口令落库成功后才持久化到本机：评价审核、菜品管理等页面共用它
+    if (!cloudHasToken.value && typedToken) {
+      saveAdminToken(typedToken)
+      localToken.value = typedToken
     }
 
     form.value.api_key = ''
+    form.value.wechat_secret = ''
     adminToken.value = ''
     showKey.value = false
+    showSecret.value = false
     uni.showToast({ title: '配置已保存', icon: 'success' })
 
     // 重新拉取状态（只回显是否已配置，不含明文 Key）
@@ -774,6 +881,28 @@ function errorMessage(e, fallback) {
   margin: 8rpx 0 0 180rpx;
   font-size: $fs-tag;
   color: $gray4;
+  line-height: 1.6;
+}
+
+/* 表单里的分组标题（例如「微信登录配置」） */
+.section-split {
+  margin: 32rpx 0 20rpx;
+  padding-top: 28rpx;
+  border-top: 1rpx solid $line;
+}
+
+.split-title {
+  display: block;
+  font-size: $fs-sub;
+  font-weight: $fw-bold;
+  color: $ink;
+}
+
+.split-desc {
+  display: block;
+  font-size: $fs-tag;
+  color: $gray6;
+  margin-top: 8rpx;
   line-height: 1.6;
 }
 

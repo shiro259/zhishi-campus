@@ -1,0 +1,13 @@
+{
+  "name": "shiyu-devcheck",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本地自检脚本（_search/）的依赖，仅开发用，不参与 uni-app 编译与小程序打包",
+  "scripts": {
+    "check": "node check.mjs",
+    "sfc": "node sfc-own.mjs"
+  },
+  "dependencies": {
+    "@vue/compiler-sfc": "^3.5.43"
+  }
+}

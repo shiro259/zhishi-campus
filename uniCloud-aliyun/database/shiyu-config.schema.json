@@ -28,6 +28,14 @@
       "description": "大模型 API Key，仅云函数可读写，严禁对客户端开放",
       "title": "API密钥"
     },
+    "wechat_appid": {
+      "description": "微信小程序 AppID（登录用）。不是密钥——它本来就打包在小程序里，因此可以回显给管理员核对",
+      "title": "微信AppID"
+    },
+    "wechat_secret": {
+      "description": "微信小程序 AppSecret（登录用）。仅云函数可读写，严禁回显给客户端（管理后台只回「配没配」）",
+      "title": "微信AppSecret"
+    },
     "admin_token": {
       "description": "后台配置接口的管理口令，用于校验管理员身份",
       "title": "管理口令"

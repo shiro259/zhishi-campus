@@ -35,6 +35,14 @@
       }
     },
     {
+      "path": "pages/favorites/favorites",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
       "path": "pages/review/review",
       "style": {
         "navigationBarTitleText": "发表评价",

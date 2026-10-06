@@ -54,3 +54,59 @@ export const DEFAULT_AI_CONFIG = {
   model: 'deepseek-chat',
   apiKey: ''
 }
+
+/* ==========================================================================
+ * 食堂 / 楼层 / 窗口
+ *
+ * 位置模型：食堂 → 楼层 → 窗口。
+ *   · 每个食堂每层都有一套「1号窗口」~「10号窗口」（编号窗口）
+ *   · 不属于编号窗口的**自定义档口**直接填名字，例如「滋士客汉堡」「自选餐」
+ *
+ * 窗口在数据里统一存人类可读的字符串（'3号窗口' 或 '滋士客汉堡'），
+ * 便于各处直接展示；是否编号窗口用 isNumberedWindow() 判断。
+ * ========================================================================== */
+
+/** 食堂 → 楼层数。改这里即可调整某个食堂有几层 */
+export const CANTEEN_FLOORS = {
+  第一食堂: 3,
+  第二食堂: 3,
+  第三食堂: 2
+}
+
+/** 每层的编号窗口数量：1号窗口 ~ 10号窗口 */
+export const WINDOWS_PER_FLOOR = 10
+
+/** 食堂名列表（顺序即 picker 顺序） */
+export const CANTEENS = Object.keys(CANTEEN_FLOORS)
+
+/**
+ * 某食堂的楼层候选
+ * @param {string} canteen
+ * @returns {number[]} 例如 [1, 2, 3]；未配置的食堂返回空数组
+ */
+export function floorOptions(canteen) {
+  const count = CANTEEN_FLOORS[canteen] || 0
+  const list = []
+  for (let i = 1; i <= count; i++) list.push(i)
+  return list
+}
+
+/**
+ * 编号窗口候选
+ * @returns {string[]} ['1号窗口', '2号窗口', ... '10号窗口']
+ */
+export function windowOptions() {
+  const list = []
+  for (let i = 1; i <= WINDOWS_PER_FLOOR; i++) list.push(i + '号窗口')
+  return list
+}
+
+/**
+ * 判断是不是编号窗口
+ * '3号窗口' → true；「滋士客汉堡」「自选餐」这类自定义档口 → false
+ * @param {string} win
+ * @returns {boolean}
+ */
+export function isNumberedWindow(win) {
+  return /^\d+号窗口$/.test(String(win || '').trim())
+}
