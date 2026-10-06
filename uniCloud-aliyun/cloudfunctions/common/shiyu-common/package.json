@@ -1,0 +1,6 @@
+{
+  "name": "shiyu-common",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "食遇校园云函数公共库（管理口令校验、AI 配置读取、分页与响应工具），被 shiyu-* 云函数以相对路径 require 引用"
+}

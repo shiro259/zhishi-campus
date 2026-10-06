@@ -9,8 +9,15 @@
 node_modules/
 .node_modules/
 .eslintcache
-unpackage/dist/build/
-unpackage/dist/dev/
+.npm-cache/
+# HBuilderX / uni-app 编译产物与调试缓存
+unpackage/
+.preview/
+
+# 临时诊断 / 调试脚本
+.dbg*.mjs
+.diag-*.mjs
+.seed-*.mjs
 
 # python
 *.pyc

@@ -1,0 +1,607 @@
+{
+  "generated_at": "2026-10-06 02:19:25",
+  "source": "Wikimedia Commons (https://commons.wikimedia.org)",
+  "note": "图片为自由授权作品，逐条来源与作者见 items；仅作教学演示用途，可用于答辩材料的来源说明",
+  "width": 400,
+  "items": [
+    {
+      "file": "static/dishes/d001.jpg",
+      "dishes": [
+        "麻婆豆腐"
+      ],
+      "query": "Mapo tofu",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 80701,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d002.jpg",
+      "dishes": [
+        "宫保鸡丁",
+        "辣子鸡"
+      ],
+      "query": "Kung Pao chicken",
+      "source_title": "Kung Pao Chicken at Yujiayan Restaurant (20230510123120).jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Kung%20Pao%20Chicken%20at%20Yujiayan%20Restaurant%20(20230510123120).jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "N509FZ",
+      "status": "ok",
+      "bytes": 62264,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d003.jpg",
+      "dishes": [
+        "水煮肉片"
+      ],
+      "query": "Sichuan boiled pork",
+      "source_title": "Shuizhu Roupian on T8 (20260430102820).jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Shuizhu%20Roupian%20on%20T8%20(20260430102820).jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "N509FZ",
+      "status": "ok",
+      "bytes": 54869,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d004.jpg",
+      "dishes": [
+        "鱼香肉丝"
+      ],
+      "query": "Yuxiang shredded pork",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 60303,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d005.jpg",
+      "dishes": [
+        "麻辣香锅",
+        "毛血旺",
+        "麻辣烫"
+      ],
+      "query": "Mala xiang guo",
+      "source_title": "Malaxiangguo in China.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Malaxiangguo%20in%20China.jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "Qinrong0115",
+      "status": "ok",
+      "bytes": 121661,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d006.jpg",
+      "dishes": [
+        "重庆小面",
+        "担担面",
+        "酸辣粉"
+      ],
+      "query": "Chongqing noodles",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 87140,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d007.jpg",
+      "dishes": [
+        "酸辣土豆丝"
+      ],
+      "query": "shredded potato stir fry",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 52242,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d008.jpg",
+      "dishes": [
+        "回锅肉"
+      ],
+      "query": "twice cooked pork",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 71702,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d009.jpg",
+      "dishes": [
+        "番茄炒蛋"
+      ],
+      "query": "scrambled eggs with tomatoes",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 58329,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d010.jpg",
+      "dishes": [
+        "红烧排骨",
+        "土豆炖牛肉",
+        "番茄牛腩饭"
+      ],
+      "query": "braised pork ribs",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 59590,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d011.jpg",
+      "dishes": [
+        "青椒肉丝"
+      ],
+      "query": "shredded pork green pepper",
+      "source_title": "Pepper steak.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Pepper%20steak.jpg",
+      "license": "CC BY-SA 3.0",
+      "artist": "Bakkai撮影",
+      "status": "ok",
+      "bytes": 80395,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d012.jpg",
+      "dishes": [
+        "清炒时蔬",
+        "蒜蓉蒸虾"
+      ],
+      "query": "stir fried vegetables Chinese",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 47124,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d013.jpg",
+      "dishes": [
+        "紫菜蛋花汤"
+      ],
+      "query": "egg drop soup",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 31090,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d014.jpg",
+      "dishes": [
+        "蒜蓉油麦菜",
+        "蒜蓉粉丝娃娃菜"
+      ],
+      "query": "Chinese broccoli oyster sauce",
+      "source_title": "Stir Fried Bok Choy, Aug 2025.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Stir%20Fried%20Bok%20Choy%2C%20Aug%202025.jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "Ralff Nestor Nacor",
+      "status": "ok",
+      "bytes": 48933,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d015.jpg",
+      "dishes": [
+        "兰州拉面",
+        "牛肉拉面",
+        "阳春面"
+      ],
+      "query": "Lanzhou beef noodles",
+      "source_title": "Lamian Noodle Soup.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Lamian%20Noodle%20Soup.jpg",
+      "license": "CC0",
+      "artist": "PenPineapplePinniped",
+      "status": "ok",
+      "bytes": 82631,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d016.jpg",
+      "dishes": [
+        "三鲜馄饨"
+      ],
+      "query": "wonton soup",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 56599,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d017.jpg",
+      "dishes": [
+        "武汉热干面"
+      ],
+      "query": "hot dry noodles Wuhan",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 99545,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d018.jpg",
+      "dishes": [
+        "西红柿鸡蛋面",
+        "番茄鸡蛋面"
+      ],
+      "query": "tomato egg noodles",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 72599,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d019.jpg",
+      "dishes": [
+        "油泼面",
+        "炸酱面"
+      ],
+      "query": "biang biang noodles",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 82509,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d020.jpg",
+      "dishes": [
+        "黄焖鸡米饭",
+        "香菇滑鸡"
+      ],
+      "query": "braised chicken rice",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 48995,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d021.jpg",
+      "dishes": [
+        "台式卤肉饭"
+      ],
+      "query": "braised pork rice Taiwan",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 35889,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d022.jpg",
+      "dishes": [
+        "咖喱鸡排饭",
+        "咖喱鸡肉饭"
+      ],
+      "query": "chicken curry rice",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 61767,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d023.jpg",
+      "dishes": [
+        "梅菜扣肉饭"
+      ],
+      "query": "梅菜扣肉",
+      "source_title": "HK 灣仔 Wan Chai Hennessy Road 北海中心 CNT Tower 稻香酒家 Tao Heung Restaurant morning tea breakfast 梅菜扣肉 Mui Choy with Pork Belly steamed rice June 2019 SSG 03.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:HK%20%E7%81%A3%E4%BB%94%20Wan%20Chai%20Hennessy%20Road%20%E5%8C%97%E6%B5%B7%E4%B8%AD%E5%BF%83%20CNT%20Tower%20%E7%A8%BB%E9%A6%99%E9%85%92%E5%AE%B6%20Tao%20Heung%20Restaurant%20morning%20tea%20breakfast%20%E6%A2%85%E8%8F%9C%E6%89%A3%E8%82%89%20Mui%20Choy%20with%20Pork%20Belly%20steamed%20rice%20June%202019%20SSG%2003.jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "YAzHSULLD",
+      "status": "ok",
+      "bytes": 75247,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d024.jpg",
+      "dishes": [
+        "蛋炒饭"
+      ],
+      "query": "egg fried rice",
+      "source_title": "Chinese egg fried rice.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Chinese%20egg%20fried%20rice.jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "Euniceyeoh07",
+      "status": "ok",
+      "bytes": 62112,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d025.jpg",
+      "dishes": [
+        "沙县蒸饺",
+        "小笼包"
+      ],
+      "query": "steamed dumplings",
+      "source_title": "Willow leaf steamed dumplings.jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Willow%20leaf%20steamed%20dumplings.jpg",
+      "license": "CC0",
+      "artist": "Fumikas Sagisavas",
+      "status": "ok",
+      "bytes": 64259,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d026.jpg",
+      "dishes": [
+        "螺蛳粉"
+      ],
+      "query": "Luosifen",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 75225,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d027.jpg",
+      "dishes": [
+        "烤冷面"
+      ],
+      "query": "grilled cold noodles",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 77506,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d028.jpg",
+      "dishes": [
+        "手抓饼",
+        "煎饼果子",
+        "肉夹馍"
+      ],
+      "query": "scallion pancake",
+      "source_title": "Spring onion pancake 2013.JPG",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Spring%20onion%20pancake%202013.JPG",
+      "license": "GFDL",
+      "artist": "Howard61313",
+      "status": "ok",
+      "bytes": 69978,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d029.jpg",
+      "dishes": [
+        "广东肠粉",
+        "干炒牛河"
+      ],
+      "query": "rice noodle roll",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 65863,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d030.jpg",
+      "dishes": [
+        "白切鸡"
+      ],
+      "query": "white cut chicken",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 52967,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d031.jpg",
+      "dishes": [
+        "蜜汁叉烧饭",
+        "照烧鸡腿饭",
+        "蜜汁叉烧"
+      ],
+      "query": "char siu rice",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 89990,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d032.jpg",
+      "dishes": [
+        "皮蛋瘦肉粥"
+      ],
+      "query": "congee pork",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 60665,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d033.jpg",
+      "dishes": [
+        "鸭血粉丝汤"
+      ],
+      "query": "duck blood soup",
+      "source_title": "Duck blood and vermicelli soup (20150819124849).JPG",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Duck%20blood%20and%20vermicelli%20soup%20(20150819124849).JPG",
+      "license": "CC BY-SA 4.0",
+      "artist": "N509FZ",
+      "status": "ok",
+      "bytes": 68104,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d034.jpg",
+      "dishes": [
+        "羊肉泡馍"
+      ],
+      "query": "Yangrou paomo",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 51856,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d035.jpg",
+      "dishes": [
+        "云南过桥米线"
+      ],
+      "query": "crossing the bridge noodles",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 70608,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d036.jpg",
+      "dishes": [
+        "孜然羊肉串",
+        "孜然羊肉饭"
+      ],
+      "query": "lamb skewers",
+      "source_title": "Lamb kebabs on tamarisk skewers at Gülhan Restaurant, Beijing (20210402165927).jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Lamb%20kebabs%20on%20tamarisk%20skewers%20at%20G%C3%BClhan%20Restaurant%2C%20Beijing%20(20210402165927).jpg",
+      "license": "CC BY-SA 4.0",
+      "artist": "N509FZ",
+      "status": "ok",
+      "bytes": 70681,
+      "skipped": false
+    },
+    {
+      "file": "static/dishes/d037.jpg",
+      "dishes": [
+        "鸡胸沙拉"
+      ],
+      "query": "grilled chicken salad",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 82554,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d038.jpg",
+      "dishes": [
+        "全麦三明治",
+        "鸡胸肉沙拉",
+        "藜麦蔬菜饭"
+      ],
+      "query": "whole wheat sandwich",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 66302,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d039.jpg",
+      "dishes": [
+        "水果酸奶杯",
+        "牛奶燕麦碗"
+      ],
+      "query": "yogurt fruit parfait",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 61305,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d040.jpg",
+      "dishes": [
+        "鲜榨橙汁"
+      ],
+      "query": "fresh orange juice glass",
+      "source_title": "",
+      "source_page": "",
+      "license": "",
+      "artist": "",
+      "status": "ok",
+      "bytes": 52019,
+      "skipped": true
+    },
+    {
+      "file": "static/dishes/d041.jpg",
+      "dishes": [
+        "红烧牛肉饭"
+      ],
+      "query": "braised beef rice",
+      "source_title": "牛腩饭 Beef Brisket on Rice - Sung Kitchen (2756022239).jpg",
+      "source_page": "https://commons.wikimedia.org/wiki/File:%E7%89%9B%E8%85%A9%E9%A5%AD%20Beef%20Brisket%20on%20Rice%20-%20Sung%20Kitchen%20(2756022239).jpg",
+      "license": "CC BY-SA 2.0",
+      "artist": "Alpha from Melbourne, Australia",
+      "status": "ok",
+      "bytes": 47908,
+      "skipped": false
+    }
+  ]
+}

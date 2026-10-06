@@ -1,0 +1,40 @@
+{
+  "bsonType": "object",
+  "required": ["provider", "base_url", "model"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "配置记录ID，固定为 shiyu-config 保持单文档",
+      "title": "配置ID"
+    },
+    "provider": {
+      "description": "大模型服务商名称，例如：deepseek、qwen、openai",
+      "title": "服务商"
+    },
+    "base_url": {
+      "description": "大模型接口基础地址，云函数会在其后拼接 /chat/completions",
+      "title": "接口地址"
+    },
+    "model": {
+      "description": "调用的模型名称，例如：deepseek-chat",
+      "title": "模型名称"
+    },
+    "api_key": {
+      "description": "大模型 API Key，仅云函数可读写，严禁对客户端开放",
+      "title": "API密钥"
+    },
+    "admin_token": {
+      "description": "后台配置接口的管理口令，用于校验管理员身份",
+      "title": "管理口令"
+    },
+    "updated_at": {
+      "description": "配置最后更新时间戳",
+      "title": "更新时间"
+    }
+  }
+}

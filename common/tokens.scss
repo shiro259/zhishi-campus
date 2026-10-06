@@ -1,0 +1,95 @@
+/**
+ * 食遇校园 · 设计令牌（Design Tokens）
+ *
+ * 全项目唯一的视觉标准。所有页面必须使用这里的变量，不允许再写死颜色 / 圆角 / 间距，
+ * 也不允许再使用渐变卡片、彩色标签等"插件市场风"的装饰。
+ *
+ * 设计取向：简约、克制、留白充足。
+ *   · 只用一个强调色（品牌橙），其余全部为中性灰阶
+ *   · 主视觉靠字重、字号、间距拉开层次，而不是靠颜色和阴影堆叠
+ *   · 卡片统一：白底 + 1px 描边 + 大圆角 + 极浅投影，不使用渐变背景
+ *   · 图标统一走 Icon 组件（内联 SVG），不使用 emoji 充当界面图标
+ *
+ * 用法（uni.scss 已被 uni-app 自动注入到每个 <style lang="scss"> 中，无需 import）：
+ *   .price { color: $brand; }
+ */
+
+/* ==================== 品牌色 ==================== */
+$brand: #ff5a36; // 主色：按钮、价格、选中态
+$brand-dark: #e8481f; // 按压态
+$brand-soft: #fff1ec; // 主色浅底：标签、选中背景
+$brand-line: #ffd9cc; // 主色描边
+
+/* ==================== 中性色阶 ==================== */
+$ink: #14110f; // 一级文字 / 标题
+$gray7: #4a443f; // 二级文字 / 正文
+$gray6: #8a8580; // 三级文字 / 辅助说明
+$gray4: #b8b2aa; // 占位符 / 弱化文字
+$line: #eeece7; // 描边 / 分割线
+$line-strong: #e2ded6; // 强描边 / 输入框
+$surface: #ffffff; // 卡片底色
+$surface-sunken: #f2f0eb; // 内嵌块 / 输入框底
+$canvas: #f7f6f3; // 页面背景（暖白，比纯灰更高级）
+
+/* ==================== 状态色（克制使用，仅用于语义） ==================== */
+$success: #1f9d63;
+$success-soft: #e9f7f0;
+$warning: #c98a1b;
+$warning-soft: #fdf4e3;
+$danger: #d93a3a;
+$danger-soft: #fdecec;
+
+/* ==================== 字号 ==================== */
+$fs-display: 48rpx; // 金额、关键数字
+$fs-title: 36rpx; // 页面主标题
+$fs-card: 32rpx; // 卡片标题
+$fs-body: 28rpx; // 正文
+$fs-sub: 26rpx; // 次要正文
+$fs-cap: 24rpx; // 辅助说明
+$fs-tag: 22rpx; // 标签、角标
+
+/* ==================== 字重 ==================== */
+$fw-bold: 600; // 标题（中文用 600 比 700 更精致）
+$fw-medium: 500; // 强调
+$fw-normal: 400; // 正文
+
+/* ==================== 圆角 ==================== */
+$radius-sm: 8rpx;
+$radius: 16rpx;
+$radius-card: 24rpx; // 卡片标准圆角
+$radius-lg: 32rpx; // 大区块 / 弹层
+$radius-pill: 999rpx; // 胶囊
+
+/* ==================== 间距 ==================== */
+$gap-page: 32rpx; // 页面左右内边距
+$gap-card: 28rpx; // 卡片内边距
+$gap: 20rpx; // 元素间距
+$gap-sm: 12rpx; // 紧凑间距
+$gap-lg: 28rpx; // 区块间距
+
+/* ==================== 投影（只保留两档，极浅） ==================== */
+$shadow-card: 0 2rpx 12rpx rgba(20, 17, 15, 0.03);
+$shadow-raise: 0 8rpx 24rpx rgba(20, 17, 15, 0.06);
+$shadow-brand: 0 8rpx 20rpx rgba(255, 90, 54, 0.24);
+
+/* ==================== 控件高度 ==================== */
+$h-btn: 88rpx;
+$h-btn-sm: 64rpx;
+$h-input: 88rpx;
+
+/* ==================== 兼容 uni-app 内置变量（避免插件样式跑偏） ==================== */
+$uni-color-primary: $brand;
+$uni-color-success: $success;
+$uni-color-warning: $warning;
+$uni-color-error: $danger;
+$uni-text-color: $ink;
+$uni-text-color-grey: $gray6;
+$uni-text-color-placeholder: $gray4;
+$uni-bg-color: $surface;
+$uni-bg-color-grey: $canvas;
+$uni-border-color: $line;
+$uni-border-radius-base: $radius;
+$uni-border-radius-lg: $radius-card;
+$uni-font-size-base: $fs-body;
+$uni-font-size-sm: $fs-cap;
+$uni-font-size-lg: $fs-card;
