@@ -1,52 +1,58 @@
 <template>
-  <view class="dish-page">
+  <view class="page">
     <!-- 加载中 -->
-    <view class="state-box" v-if="loading">
-      <text class="state-icon">⏳</text>
-      <text class="state-text">加载中...</text>
+    <view class="state" v-if="loading">
+      <view class="spinner" />
+      <text class="state-main">正在加载菜品…</text>
     </view>
 
     <!-- 加载失败 / 菜品不存在 -->
-    <view class="state-box" v-else-if="error">
-      <text class="state-icon">😵</text>
-      <text class="state-text">{{ error }}</text>
+    <view class="state" v-else-if="error">
+      <Icon name="warning" :size="72" color="#D8D3CB" />
+      <text class="state-main">{{ error }}</text>
+      <text class="state-sub">去推荐页看看今天还有什么好吃的</text>
       <view class="state-btn" @click="goRecommend">回到推荐</view>
     </view>
 
     <!-- 菜品内容 -->
     <template v-else-if="dish">
-      <!-- 菜品大图（无图时自动回退为 emoji 展示） -->
+      <!-- 菜品大图（有图显示照片，无图由 DishImage 回退为 emoji 方块） -->
       <view class="hero">
-        <DishImage :dish="dish" :size="340" :radius="32" />
+        <DishImage :dish="dish" :size="420" :radius="32" />
       </view>
 
       <!-- 基本信息 -->
-      <view class="info-card">
+      <view class="card">
         <view class="name-row">
           <text class="dish-name">{{ dish.name }}</text>
           <text class="dish-price">{{ money(dish.price) }}</text>
         </view>
 
-        <view class="meta-row">
-          <text class="rating">⭐ {{ ratingText(dish.rating) }} 分</text>
-          <text class="divider">|</text>
-          <text class="loc">📍 {{ dish.canteen || '未知食堂' }} · {{ dish.window || '未知窗口' }}</text>
+        <view class="meta">
+          <view class="meta-item">
+            <Icon name="location" :size="26" color="#8A8580" />
+            <text class="meta-text">{{ dish.canteen || '未知食堂' }} · {{ dish.window || '未知窗口' }}</text>
+          </view>
+          <view class="meta-item">
+            <Icon name="star" :size="26" color="#8A8580" />
+            <text class="meta-text">{{ ratingText(dish.rating) }} 分</text>
+          </view>
         </view>
 
-        <view class="tag-row" v-if="dish.tags && dish.tags.length">
+        <view class="tags" v-if="dish.tags && dish.tags.length">
           <text class="tag" v-for="(t, i) in dish.tags" :key="i">{{ t }}</text>
         </view>
-        <view class="tag-row" v-else>
+        <view class="tags" v-else>
           <text class="tag-empty">暂无口味标签</text>
         </view>
 
         <!-- 数据统计 -->
-        <view class="stats-row">
-          <view class="stat-item">
+        <view class="stats">
+          <view class="stat">
             <text class="stat-num">{{ count(dish.recommend_count) }}</text>
             <text class="stat-label">推荐次数</text>
           </view>
-          <view class="stat-item">
+          <view class="stat">
             <text class="stat-num">{{ count(dish.review_count) }}</text>
             <text class="stat-label">评价数</text>
           </view>
@@ -54,43 +60,53 @@
       </view>
 
       <!-- 菜品描述 -->
-      <view class="section">
-        <view class="section-title">
-          <text>菜品介绍</text>
+      <view class="card">
+        <view class="card-head">
+          <text class="card-title">菜品介绍</text>
         </view>
         <text class="desc" v-if="dish.description">{{ dish.description }}</text>
-        <text class="desc empty-text" v-else>这道菜还没有介绍，欢迎你去尝鲜后补充评价～</text>
+        <text class="desc desc-empty" v-else>这道菜还没有介绍，欢迎你去尝鲜后补充评价～</text>
       </view>
 
       <!-- 评价列表 -->
-      <view class="section">
-        <view class="section-title">
-          <text>真实评价 ({{ reviewTotal }})</text>
+      <view class="card">
+        <view class="card-head">
+          <text class="card-title">同学评价</text>
+          <text class="card-count">{{ reviewTotal }} 条</text>
         </view>
 
-        <view class="review-item" v-for="r in reviews" :key="r.id">
-          <view class="review-header">
+        <view class="review" v-for="r in reviews" :key="r.id">
+          <view class="review-top">
             <view class="avatar">
               <text class="avatar-text">{{ avatarText(r) }}</text>
             </view>
             <view class="review-user">
-              <text class="nickname">{{ nickname(r) }}</text>
+              <view class="review-name-row">
+                <text class="nickname">{{ nickname(r) }}</text>
+                <text class="review-time">{{ reviewTime(r) }}</text>
+              </view>
               <view class="stars">
-                <text v-for="n in 5" :key="n" :class="{ on: n <= Number(r.rating || 0) }">★</text>
+                <Icon
+                  v-for="n in 5"
+                  :key="n"
+                  name="star"
+                  :size="24"
+                  :color="n <= Math.round(Number(r.rating || 0)) ? '#FF5A36' : '#B8B2AA'"
+                />
               </view>
             </view>
-            <text class="review-time">{{ reviewTime(r) }}</text>
           </view>
           <text class="review-content" v-if="r.content">{{ r.content }}</text>
         </view>
 
         <view class="review-state" v-if="reviewLoading">
-          <text>评价加载中...</text>
+          <view class="spinner spinner-sm" />
+          <text class="review-state-text">评价加载中…</text>
         </view>
 
         <view class="review-empty" v-else-if="!reviews.length">
           <text class="review-empty-icon">🍽️</text>
-          <text>还没有评价，快来抢沙发吧~</text>
+          <text class="review-empty-text">还没有评价，快来抢沙发吧~</text>
         </view>
 
         <view class="more-btn" v-if="reviewHasMore && !reviewLoading" @click="loadMoreReviews">
@@ -102,13 +118,15 @@
       </view>
     </template>
 
-    <!-- 底部按钮区 -->
+    <!-- 底部固定操作条 -->
     <view class="action-bar" v-if="dish && !loading && !error">
       <view class="btn-ghost" @click="goRecommend">
-        <text>回到推荐</text>
+        <Icon name="refresh" :size="30" color="#4A443F" />
+        <text class="btn-ghost-text">换一道</text>
       </view>
       <view class="btn-primary" @click="goReview">
-        <text>✍️ 写评价</text>
+        <Icon name="edit" :size="30" color="#FFFFFF" />
+        <text class="btn-primary-text">写评价</text>
       </view>
     </view>
   </view>
@@ -242,30 +260,36 @@ function count(value) {
 }
 </script>
 
-<style scoped>
-.dish-page {
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
+.page {
   min-height: 100vh;
-  background: #f5f5f5;
-  padding-bottom: 160rpx;
+  background: $canvas;
+  padding: $gap-page;
+  /* 给底部固定操作条留出安全距离 */
+  padding-bottom: 180rpx;
+  box-sizing: border-box;
 }
 
-/* 菜品大图展示区：有图显示照片，无图由 DishImage 回退为 emoji 方块 */
+/* ==================== 顶部大图 ==================== */
 .hero {
-  height: 420rpx;
-  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-bottom: $gap-lg;
 }
 
-/* 信息卡片 */
-.info-card {
-  position: relative;
-  z-index: 2;
-  margin: -50rpx 24rpx 0;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
+.hero :deep(.dish-image) {
+  width: 100% !important;
+  height: 420rpx !important;
+}
+
+/* ==================== 卡片 ==================== */
+.card {
+  margin-bottom: $gap-lg;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
+  box-sizing: border-box;
 }
 
 .name-row {
@@ -276,277 +300,362 @@ function count(value) {
 
 .dish-name {
   flex: 1;
-  font-size: 38rpx;
-  font-weight: bold;
-  color: #333;
-  margin-right: 20rpx;
+  margin-right: $gap;
+  font-size: $fs-title;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .dish-price {
-  font-size: 38rpx;
-  font-weight: bold;
-  color: #FF6B35;
+  flex-shrink: 0;
+  font-size: $fs-display;
+  font-weight: $fw-bold;
+  color: $brand;
 }
 
-.meta-row {
-  display: flex;
-  align-items: center;
-  margin-top: 16rpx;
-  font-size: 24rpx;
-}
-
-.rating {
-  color: #FF9800;
-}
-
-.divider {
-  margin: 0 14rpx;
-  color: #e0e0e0;
-}
-
-.loc {
-  color: #666;
-  flex: 1;
-}
-
-.tag-row {
+/* 元信息 */
+.meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 20rpx;
+  margin-top: $gap-sm;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  margin-right: $gap;
+  margin-bottom: 6rpx;
+}
+
+.meta-text {
+  font-size: $fs-cap;
+  color: $gray6;
+}
+
+/* 口味标签 */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $gap-sm;
+  margin-top: $gap;
 }
 
 .tag {
-  font-size: 22rpx;
-  color: #FF6B35;
-  background: #FFF0EB;
-  padding: 6rpx 18rpx;
-  border-radius: 8rpx;
+  padding: 0 20rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  background: $brand-soft;
+  color: $brand;
+  font-size: $fs-tag;
+  border-radius: $radius-pill;
+  box-sizing: border-box;
 }
 
 .tag-empty {
-  font-size: 22rpx;
-  color: #bbb;
+  font-size: $fs-tag;
+  color: $gray4;
 }
 
-.stats-row {
+/* 统计块 */
+.stats {
   display: flex;
-  margin-top: 26rpx;
-  padding-top: 24rpx;
-  border-top: 1rpx solid #f0f0f0;
+  margin-top: $gap-lg;
 }
 
-.stat-item {
+.stat {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: $gap 0;
+  background: $surface-sunken;
+  border-radius: $radius;
+}
+
+.stat + .stat {
+  margin-left: $gap-sm;
 }
 
 .stat-num {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #FF6B35;
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .stat-label {
-  font-size: 22rpx;
-  color: #999;
-  margin-top: 8rpx;
+  margin-top: 6rpx;
+  font-size: $fs-tag;
+  color: $gray6;
 }
 
-/* 通用区块 */
-.section {
-  margin: 24rpx;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 20rpx;
-}
-
-.desc {
-  font-size: 26rpx;
-  color: #666;
-  line-height: 1.7;
-  display: block;
-}
-
-.empty-text {
-  color: #bbb;
-}
-
-/* 评价 */
-.review-item {
-  padding: 22rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
-}
-
-.review-item:last-child {
-  border-bottom: none;
-}
-
-.review-header {
+/* 卡片标题 */
+.card-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: $gap-sm;
+}
+
+.card-title {
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
+}
+
+.card-count {
+  font-size: $fs-cap;
+  color: $gray6;
+}
+
+/* 菜品介绍 */
+.desc {
+  display: block;
+  font-size: $fs-body;
+  color: $gray7;
+  line-height: 1.7;
+}
+
+.desc-empty {
+  color: $gray4;
+}
+
+/* ==================== 评价列表 ==================== */
+.review {
+  padding: $gap 0;
+  border-bottom: 2rpx solid $line;
+}
+
+.review:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.review-top {
+  display: flex;
+  align-items: flex-start;
 }
 
 .avatar {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background: #FFF0EB;
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 16rpx;
-  flex-shrink: 0;
+  background: $surface-sunken;
+  border-radius: 50%;
 }
 
 .avatar-text {
-  font-size: 26rpx;
-  color: #FF6B35;
+  font-size: $fs-sub;
+  font-weight: $fw-medium;
+  color: $gray7;
 }
 
 .review-user {
   flex: 1;
   min-width: 0;
+  margin-left: $gap-sm;
+}
+
+.review-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .nickname {
-  font-size: 26rpx;
-  color: #333;
-  display: block;
-}
-
-.stars {
-  margin-top: 4rpx;
-}
-
-.stars text {
-  font-size: 22rpx;
-  color: #ddd;
-  margin-right: 2rpx;
-}
-
-.stars text.on {
-  color: #FF9800;
+  flex: 1;
+  font-size: $fs-sub;
+  font-weight: $fw-medium;
+  color: $ink;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .review-time {
-  font-size: 22rpx;
-  color: #bbb;
   flex-shrink: 0;
+  margin-left: $gap-sm;
+  font-size: $fs-tag;
+  color: $gray6;
+}
+
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  margin-top: 6rpx;
 }
 
 .review-content {
   display: block;
-  margin-top: 14rpx;
-  font-size: 26rpx;
-  color: #444;
+  margin-top: $gap-sm;
+  font-size: $fs-body;
+  color: $gray7;
   line-height: 1.7;
 }
 
-.review-state,
-.review-end {
-  text-align: center;
-  padding: 24rpx 0;
-  font-size: 24rpx;
-  color: #bbb;
+.review-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $gap 0;
+}
+
+.review-state-text {
+  margin-left: 10rpx;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .review-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 50rpx 0;
-  font-size: 26rpx;
-  color: #bbb;
+  padding: 60rpx 0;
 }
 
 .review-empty-icon {
-  font-size: 66rpx;
-  margin-bottom: 16rpx;
+  font-size: 64rpx;
+  margin-bottom: $gap-sm;
+}
+
+.review-empty-text {
+  font-size: $fs-cap;
+  color: $gray6;
+}
+
+.review-end {
+  padding: $gap 0 0;
+  text-align: center;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .more-btn {
-  margin-top: 24rpx;
-  height: 72rpx;
-  border: 2rpx solid #FF6B35;
-  border-radius: 36rpx;
+  margin-top: $gap;
+  height: $h-btn-sm;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
-  color: #FF6B35;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
+  box-sizing: border-box;
 }
 
-/* 底部按钮 */
+/* ==================== 加载 / 异常态 ==================== */
+.spinner {
+  width: 44rpx;
+  height: 44rpx;
+  border: 4rpx solid $line;
+  border-top-color: $brand;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner-sm {
+  width: 28rpx;
+  height: 28rpx;
+  border-width: 3rpx;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 180rpx $gap 0;
+}
+
+.state-main {
+  margin-top: $gap;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $ink;
+  text-align: center;
+}
+
+.state-sub {
+  margin-top: $gap-sm;
+  font-size: $fs-cap;
+  color: $gray6;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* 异常态里的次按钮（独立定义，避免复用到固定操作条的 flex 规则） */
+.state-btn {
+  margin-top: $gap-lg;
+  height: $h-btn-sm;
+  padding: 0 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
+  box-sizing: border-box;
+}
+
+/* ==================== 底部固定操作条 ==================== */
 .action-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   display: flex;
-  gap: 20rpx;
-  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
-  background: #fff;
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+  align-items: center;
+  padding: 20rpx $gap-page calc(20rpx + env(safe-area-inset-bottom));
+  background: $surface;
+  border-top: 2rpx solid $line;
 }
 
 .btn-ghost,
 .btn-primary {
   flex: 1;
-  height: 88rpx;
-  border-radius: 44rpx;
+  height: $h-btn;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  border-radius: $radius-pill;
+  font-size: $fs-card;
+  box-sizing: border-box;
 }
 
 .btn-ghost {
-  color: #FF6B35;
-  border: 2rpx solid #FF6B35;
+  margin-right: $gap;
+  background: $surface;
+  border: 2rpx solid $line;
+  color: $gray7;
 }
 
 .btn-primary {
+  background: $brand;
   color: #fff;
-  font-weight: 500;
-  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+  font-weight: $fw-medium;
+  box-shadow: $shadow-brand;
 }
 
-/* 状态 */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 200rpx 60rpx;
+.btn-ghost-text {
+  margin-left: 8rpx;
+  color: $gray7;
 }
 
-.state-icon {
-  font-size: 80rpx;
-  margin-bottom: 20rpx;
-}
-
-.state-text {
-  font-size: 28rpx;
-  color: #999;
-  text-align: center;
-  line-height: 1.6;
-}
-
-.state-btn {
-  margin-top: 30rpx;
-  padding: 14rpx 44rpx;
-  font-size: 26rpx;
-  color: #FF6B35;
-  border: 2rpx solid #FF6B35;
-  border-radius: 32rpx;
+.btn-primary-text {
+  margin-left: 8rpx;
+  color: #fff;
+  font-weight: $fw-medium;
 }
 </style>

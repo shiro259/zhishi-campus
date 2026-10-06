@@ -2,27 +2,39 @@
   <view class="data-page">
     <!-- 概览 -->
     <view class="ov-grid">
-      <view class="ov-card ov-total">
-        <text class="ov-num">{{ stats.total }}</text>
+      <view class="ov-card">
         <text class="ov-label">评价总数</text>
+        <view class="ov-value">
+          <view class="ov-dot dot-brand"></view>
+          <text class="ov-num">{{ stats.total }}</text>
+        </view>
       </view>
-      <view class="ov-card ov-pending">
-        <text class="ov-num">{{ stats.pending }}</text>
+      <view class="ov-card">
         <text class="ov-label">待审核</text>
+        <view class="ov-value">
+          <view class="ov-dot dot-warning"></view>
+          <text class="ov-num">{{ stats.pending }}</text>
+        </view>
       </view>
-      <view class="ov-card ov-pass">
-        <text class="ov-num">{{ stats.passed }}</text>
+      <view class="ov-card">
         <text class="ov-label">已通过</text>
+        <view class="ov-value">
+          <view class="ov-dot dot-success"></view>
+          <text class="ov-num">{{ stats.passed }}</text>
+        </view>
       </view>
-      <view class="ov-card ov-reject">
-        <text class="ov-num">{{ stats.rejected }}</text>
+      <view class="ov-card">
         <text class="ov-label">已拒绝</text>
+        <view class="ov-value">
+          <view class="ov-dot dot-danger"></view>
+          <text class="ov-num">{{ stats.rejected }}</text>
+        </view>
       </view>
     </view>
 
     <!-- 说明 -->
     <view class="tip-card">
-      <text class="tip-icon">ℹ️</text>
+      <Icon name="info" :size="32" />
       <text class="tip-text">
         同学身份保存在各自手机本地，后台不集中存储用户账号。此处汇总全部菜品评价数据，
         用于审核与运营分析；评价通过审核后才会在菜品详情页公开展示。
@@ -46,7 +58,7 @@
     <view class="list" v-else>
       <view class="item" v-for="r in list" :key="r._id">
         <view class="item-head">
-          <text class="avatar">😋</text>
+          <text class="avatar">{{ avatarText(r.nickname) }}</text>
           <view class="head-main">
             <text class="nickname">{{ r.nickname || '匿名同学' }}</text>
             <text class="dish-name">{{ r.dish_name || r.dish_id }}</text>
@@ -55,15 +67,26 @@
             {{ statusText(r.status) }}
           </text>
         </view>
+
         <view class="stars-row">
-          <text class="stars">{{ renderStars(r.rating || 0) }}</text>
+          <view class="stars">
+            <view
+              class="star"
+              v-for="n in 5"
+              :key="n"
+              :class="{ on: n <= starCount(r.rating) }"
+            >
+              <Icon name="star" :size="28" />
+            </view>
+          </view>
           <text class="time">{{ formatTime(r.create_date) }}</text>
         </view>
+
         <text class="content">{{ r.content }}</text>
       </view>
 
       <view class="empty" v-if="!list.length">
-        <text class="empty-emoji">📭</text>
+        <Icon name="info" :size="72" />
         <text class="empty-text">当前筛选下还没有评价数据</text>
       </view>
 
@@ -84,7 +107,7 @@
 import { ref, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { reviewApi } from '@/api/index.js'
-import { formatTime, renderStars, getUserInfo } from '@/common/utils.js'
+import { formatTime, getUserInfo } from '@/common/utils.js'
 
 const filters = [
   { label: '全部', value: '' },
@@ -183,6 +206,19 @@ function statusText(s) {
   return '待审核'
 }
 
+/** 星级：四舍五入取整，用于决定点亮几颗星 */
+function starCount(rating) {
+  const n = Math.round(Number(rating) || 0)
+  if (n < 0) return 0
+  return n > 5 ? 5 : n
+}
+
+/** 头像用昵称首字，避免用 emoji 充当界面元素 */
+function avatarText(nickname) {
+  const name = String(nickname || '').trim()
+  return name ? name.slice(0, 1) : '匿'
+}
+
 onPullDownRefresh(() => {
   load().finally(() => uni.stopPullDownRefresh())
 })
@@ -192,102 +228,141 @@ onReachBottom(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .data-page {
-  padding: 24rpx;
-  background: #f5f5f5;
   min-height: 100vh;
+  background: $canvas;
+  padding: $gap-page;
   box-sizing: border-box;
 }
 
+/* ---------------- 概览 ---------------- */
 .ov-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
+  gap: $gap;
 }
 
 .ov-card {
   width: calc(50% - 10rpx);
-  border-radius: 20rpx;
-  padding: 32rpx 26rpx;
   box-sizing: border-box;
-}
-
-.ov-total { background: linear-gradient(135deg, #667eea, #764ba2); }
-.ov-pending { background: linear-gradient(135deg, #ff9f45, #ff6b35); }
-.ov-pass { background: linear-gradient(135deg, #43c6ac, #2ba58c); }
-.ov-reject { background: linear-gradient(135deg, #8e8e8e, #5f5f5f); }
-
-.ov-num {
-  display: block;
-  font-size: 52rpx;
-  font-weight: bold;
-  color: #fff;
+  padding: $gap-card;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
 }
 
 .ov-label {
   display: block;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
-  margin-top: 8rpx;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
+.ov-value {
+  display: flex;
+  align-items: center;
+  margin-top: $gap-sm;
+}
+
+.ov-dot {
+  width: 8rpx;
+  height: 8rpx;
+  margin-right: $gap-sm;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-brand {
+  background: $brand;
+}
+
+.dot-warning {
+  background: $warning;
+}
+
+.dot-success {
+  background: $success;
+}
+
+.dot-danger {
+  background: $danger;
+}
+
+.ov-num {
+  font-size: $fs-display;
+  font-weight: $fw-bold;
+  color: $ink;
+  line-height: 1.1;
+}
+
+/* ---------------- 说明 ---------------- */
 .tip-card {
   display: flex;
   align-items: flex-start;
-  background: #fffbe6;
-  border-radius: 16rpx;
-  padding: 20rpx 22rpx;
-  margin-top: 24rpx;
-}
-
-.tip-icon {
-  font-size: 24rpx;
-  margin-right: 10rpx;
+  margin-top: $gap;
+  padding: 20rpx $gap-card;
+  background: $warning-soft;
+  border-radius: $radius;
+  color: $warning;
 }
 
 .tip-text {
   flex: 1;
-  font-size: 22rpx;
-  color: #a86b00;
-  line-height: 1.6;
+  margin-left: $gap-sm;
+  font-size: $fs-cap;
+  color: $warning;
+  line-height: 1.7;
 }
 
+/* ---------------- 筛选 ---------------- */
 .filter-bar {
   display: flex;
-  margin-top: 24rpx;
+  align-items: center;
+  margin-top: $gap;
 }
 
 .filter-item {
-  padding: 12rpx 30rpx;
-  background: #fff;
-  border-radius: 30rpx;
-  font-size: 25rpx;
-  color: #666;
-  margin-right: 16rpx;
+  height: $h-btn-sm;
+  line-height: $h-btn-sm;
+  padding: 0 32rpx;
+  margin-right: $gap-sm;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
 }
 
 .filter-item.active {
-  background: #333;
+  background: $ink;
+  border-color: $ink;
   color: #fff;
+  font-weight: $fw-medium;
 }
 
+/* ---------------- 列表 ---------------- */
 .loading {
-  text-align: center;
-  font-size: 26rpx;
-  color: #999;
   padding: 80rpx 0;
+  text-align: center;
+  font-size: $fs-sub;
+  color: $gray6;
 }
 
 .list {
-  margin-top: 24rpx;
+  display: flex;
+  flex-direction: column;
+  margin-top: $gap;
 }
 
 .item {
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 26rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: $gap-sm;
+  padding: $gap-card;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
 }
 
 .item-head {
@@ -296,15 +371,17 @@ onReachBottom(() => {
 }
 
 .avatar {
-  font-size: 44rpx;
   width: 64rpx;
   height: 64rpx;
+  line-height: 64rpx;
+  margin-right: $gap-sm;
+  flex-shrink: 0;
+  text-align: center;
+  background: $surface-sunken;
   border-radius: 50%;
-  background: #fff3ed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 18rpx;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $gray7;
 }
 
 .head-main {
@@ -314,74 +391,100 @@ onReachBottom(() => {
 
 .nickname {
   display: block;
-  font-size: 27rpx;
-  color: #333;
-  font-weight: 500;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $ink;
 }
 
 .dish-name {
   display: block;
-  font-size: 22rpx;
-  color: #999;
   margin-top: 4rpx;
+  font-size: $fs-cap;
+  color: $gray6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-tag {
-  font-size: 21rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 18rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: $radius-pill;
+  font-size: $fs-tag;
+  flex-shrink: 0;
 }
 
-.status-0 { background: #fff3e0; color: #e6871a; }
-.status-1 { background: #e8f8f0; color: #2ba58c; }
-.status-2 { background: #fdecec; color: #e64340; }
+.status-0 {
+  background: $warning-soft;
+  color: $warning;
+}
 
+.status-1 {
+  background: $success-soft;
+  color: $success;
+}
+
+.status-2 {
+  background: $danger-soft;
+  color: $danger;
+}
+
+/* ---------------- 星级 ---------------- */
 .stars-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 16rpx;
+  margin-top: $gap;
 }
 
 .stars {
-  font-size: 24rpx;
-  color: #FF9800;
+  display: flex;
+  align-items: center;
+}
+
+.star {
+  margin-right: 6rpx;
+  color: $gray4;
+}
+
+.star.on {
+  color: $brand;
 }
 
 .time {
-  font-size: 21rpx;
-  color: #bbb;
+  flex: 1;
+  text-align: right;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .content {
   display: block;
-  font-size: 25rpx;
-  color: #555;
-  line-height: 1.6;
-  margin-top: 12rpx;
+  margin-top: $gap-sm;
+  font-size: $fs-sub;
+  color: $gray7;
+  line-height: 1.7;
 }
 
+/* ---------------- 空态 / 加载更多 ---------------- */
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 100rpx 0;
-}
-
-.empty-emoji {
-  font-size: 80rpx;
+  color: $gray4;
 }
 
 .empty-text {
-  margin-top: 18rpx;
-  font-size: 26rpx;
-  color: #999;
+  margin-top: $gap;
+  font-size: $fs-sub;
+  color: $gray6;
 }
 
 .load-more {
-  text-align: center;
-  font-size: 26rpx;
-  color: #666;
   padding: 26rpx 0;
+  text-align: center;
+  font-size: $fs-sub;
+  color: $gray6;
 }
 </style>

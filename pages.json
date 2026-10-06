@@ -3,127 +3,127 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "食遇校园",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/recommend/recommend",
       "style": {
-        "navigationBarTitleText": "AI 智能推荐",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white"
+        "navigationBarTitleText": "AI 推荐",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/dish-list/dish-list",
       "style": {
-        "navigationBarTitleText": "菜品列表",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
+        "navigationBarTitleText": "食堂菜单",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/dish/dish",
       "style": {
         "navigationBarTitleText": "菜品详情",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white"
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/review/review",
       "style": {
-        "navigationBarTitleText": "发布评价",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white"
+        "navigationBarTitleText": "发表评价",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/user/user",
       "style": {
         "navigationBarTitleText": "我的",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white"
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/login/login",
       "style": {
-        "navigationBarTitleText": "登录",
-        "navigationBarBackgroundColor": "#FF6B35",
-        "navigationBarTextStyle": "white"
+        "navigationBarTitleText": "",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/index",
       "style": {
         "navigationBarTitleText": "管理后台",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white"
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/dashboard",
       "style": {
         "navigationBarTitleText": "数据看板",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/dishes",
       "style": {
         "navigationBarTitleText": "菜品管理",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/dish-edit",
       "style": {
         "navigationBarTitleText": "编辑菜品",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white"
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/reviews",
       "style": {
         "navigationBarTitleText": "评价审核",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/users",
       "style": {
         "navigationBarTitleText": "评价数据",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/admin/ai-config",
       "style": {
         "navigationBarTitleText": "AI 配置",
-        "navigationBarBackgroundColor": "#333333",
-        "navigationBarTextStyle": "white"
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
       }
     }
   ],
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#FF6B35",
-    "borderStyle": "black",
-    "backgroundColor": "#ffffff",
+    "color": "#B8B2AA",
+    "selectedColor": "#FF5A36",
+    "borderStyle": "white",
+    "backgroundColor": "#FFFFFF",
     "list": [
       {
         "pagePath": "pages/index/index",
@@ -135,13 +135,13 @@
         "pagePath": "pages/recommend/recommend",
         "iconPath": "static/tabbar/ai.png",
         "selectedIconPath": "static/tabbar/ai-active.png",
-        "text": "AI推荐"
+        "text": "AI 推荐"
       },
       {
         "pagePath": "pages/dish-list/dish-list",
         "iconPath": "static/tabbar/dish.png",
         "selectedIconPath": "static/tabbar/dish-active.png",
-        "text": "菜品"
+        "text": "菜单"
       },
       {
         "pagePath": "pages/user/user",
@@ -152,15 +152,18 @@
     ]
   },
   "globalStyle": {
-    "navigationBarTextStyle": "white",
+    "navigationBarTextStyle": "black",
     "navigationBarTitleText": "食遇校园",
-    "navigationBarBackgroundColor": "#FF6B35",
-    "backgroundColor": "#F5F5F5"
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F7F6F3",
+    "backgroundColorTop": "#F7F6F3",
+    "backgroundColorBottom": "#F7F6F3"
   },
   "easycom": {
     "autoscan": true,
     "custom": {
-      "^DishImage$": "@/components/DishImage/DishImage.vue"
+      "^DishImage$": "@/components/DishImage/DishImage.vue",
+      "^Icon$": "@/components/Icon/Icon.vue"
     }
   }
 }

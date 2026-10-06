@@ -2,17 +2,16 @@
   <view class="login-page">
     <!-- ================= 品牌区 ================= -->
     <view class="brand">
-      <view class="brand-logo">🍜</view>
-      <text class="brand-name">食遇校园</text>
-      <text class="brand-slogan">AI 智能食堂，治好你的选择困难</text>
+      <view class="brand-logo">
+        <Icon name="bowl" :size="72" color="#FF5A36" />
+      </view>
+      <text class="brand-name">{{ isEditMode ? '编辑资料' : '食遇校园' }}</text>
+      <text class="brand-slogan">AI 智能食堂 · 治好选择困难</text>
     </view>
 
-    <!-- ================= 昵称 ================= -->
+    <!-- ================= 表单卡片 ================= -->
     <view class="card">
-      <text class="card-label">
-        我的昵称
-        <text class="required">*</text>
-      </text>
+      <text class="field-label is-first">昵称</text>
       <input
         class="input"
         v-model="nickname"
@@ -23,11 +22,8 @@
         @confirm="submit"
       />
       <text class="hint">用于评价、收藏的署名展示</text>
-    </view>
 
-    <!-- ================= 头像 ================= -->
-    <view class="card">
-      <text class="card-label">挑一个头像</text>
+      <text class="field-label">选择头像</text>
       <view class="avatar-row">
         <view
           class="avatar-item"
@@ -37,22 +33,24 @@
           @click="avatar = a"
         >{{ a }}</view>
       </view>
-    </view>
 
-    <!-- ================= 身份 ================= -->
-    <view class="card">
-      <text class="card-label">我的身份</text>
+      <text class="field-label">进入身份</text>
       <view class="role-row">
-        <view class="role-chip" :class="{ active: role === 'user' }" @click="role = 'user'">
+        <view class="role-card" :class="{ active: role === 'user' }" @click="role = 'user'">
           <text class="role-name">普通同学</text>
-          <text class="role-desc">推荐 · 收藏 · 评价</text>
+          <text class="role-desc">可以推荐、评价</text>
+          <view v-if="role === 'user'" class="role-check">
+            <Icon name="check" :size="28" color="#FF5A36" />
+          </view>
         </view>
-        <view class="role-chip" :class="{ active: role === 'admin' }" @click="role = 'admin'">
+        <view class="role-card" :class="{ active: role === 'admin' }" @click="role = 'admin'">
           <text class="role-name">管理员</text>
-          <text class="role-desc">看板 · 审核 · 配置</text>
+          <text class="role-desc">可进入管理后台</text>
+          <view v-if="role === 'admin'" class="role-check">
+            <Icon name="check" :size="28" color="#FF5A36" />
+          </view>
         </view>
       </view>
-      <text class="hint">管理员可进入 AI 配置后台</text>
     </view>
 
     <!-- ================= 操作 ================= -->
@@ -61,12 +59,18 @@
       :class="{ 'is-disabled': submitting }"
       :disabled="submitting"
       @click="submit"
-    >
-      {{ submitting ? '正在进入…' : '进入食遇校园' }}
-    </button>
+    >{{ submitText }}</button>
+
+    <view class="divider">
+      <view class="divider-line" />
+      <text class="divider-text">或</text>
+      <view class="divider-line" />
+    </view>
 
     <view class="wechat-btn" :class="{ disabled: wxLoading }" @click="wxLogin">
-      <text class="wechat-icon">💬</text>
+      <view class="wechat-icon">
+        <Icon name="user" :size="32" color="#4A443F" />
+      </view>
       <text class="wechat-text">{{ wxLoading ? '正在尝试微信登录…' : '微信一键登录' }}</text>
     </view>
 
@@ -85,7 +89,7 @@
  * 评价与收藏都以此 uid 作为归属依据，因此无需密码、无需服务端会话。
  * 微信一键登录为可选增强能力，未关联云空间/非微信端时静默降级为手动填写。
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { userApi } from '@/api/index.js'
 
@@ -99,6 +103,12 @@ const submitting = ref(false)
 const wxLoading = ref(false)
 /** 编辑模式（从「我的 → 编辑资料」进入）：保存后返回上一页而不是跳首页 */
 const isEditMode = ref(false)
+
+/** 主按钮文案：编辑模式为「保存」，首次进入为「进入食遇校园」 */
+const submitText = computed(() => {
+  if (submitting.value) return isEditMode.value ? '正在保存…' : '正在进入…'
+  return isEditMode.value ? '保存' : '进入食遇校园'
+})
 
 /** 随机挑一个头像作为默认值 */
 function randomAvatar() {
@@ -215,11 +225,12 @@ async function wxLogin() {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .login-page {
   min-height: 100vh;
-  padding: 60rpx 40rpx 40rpx;
-  background: linear-gradient(180deg, #fff3ed 0%, #f5f5f5 340rpx);
+  padding: 100rpx $gap-page 60rpx;
+  background: $canvas;
   box-sizing: border-box;
 }
 
@@ -228,175 +239,191 @@ async function wxLogin() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 50rpx;
+  margin-bottom: 48rpx;
 }
 
 .brand-logo {
-  width: 150rpx;
-  height: 150rpx;
-  border-radius: 40rpx;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: $radius-lg;
+  background: $brand-soft;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 84rpx;
-  box-shadow: 0 8rpx 24rpx rgba(255, 107, 53, 0.18);
 }
 
 .brand-name {
-  font-size: 46rpx;
-  font-weight: bold;
-  color: #333;
-  margin-top: 24rpx;
+  font-size: $fs-title;
+  font-weight: $fw-bold;
+  color: $ink;
+  letter-spacing: -0.6rpx;
+  margin-top: $gap-lg;
 }
 
 .brand-slogan {
-  font-size: 25rpx;
-  color: #999;
-  margin-top: 10rpx;
+  font-size: $fs-cap;
+  color: $gray6;
+  margin-top: $gap-sm;
 }
 
-/* ---------------- 卡片 ---------------- */
+/* ---------------- 表单卡片 ---------------- */
 .card {
-  background: #fff;
-  border-radius: 24rpx;
-  padding: 28rpx 30rpx;
-  margin-bottom: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.03);
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
 }
 
-.card-label {
+.field-label {
   display: block;
-  font-size: 27rpx;
-  color: #333;
-  font-weight: 500;
-  margin-bottom: 18rpx;
+  font-size: $fs-cap;
+  color: $gray6;
+  margin-top: $gap-lg;
 }
 
-.required {
-  color: #ff4d4f;
-  font-size: 26rpx;
+.field-label.is-first {
+  margin-top: 0;
 }
 
 .input {
   width: 100%;
-  height: 84rpx;
-  background: #f8f8f8;
-  border-radius: 16rpx;
+  height: $h-input;
+  background: $surface-sunken;
+  border-radius: $radius;
   padding: 0 24rpx;
-  font-size: 28rpx;
-  color: #333;
+  font-size: $fs-body;
+  color: $ink;
   box-sizing: border-box;
 }
 
 .ph {
-  color: #bbb;
-  font-size: 26rpx;
+  color: $gray4;
+  font-size: $fs-body;
 }
 
 .hint {
   display: block;
-  font-size: 21rpx;
-  color: #aaa;
-  margin-top: 14rpx;
-  line-height: 1.5;
+  font-size: $fs-tag;
+  color: $gray4;
+  margin-top: $gap-sm;
+  line-height: 1.6;
 }
 
-/* ---------------- 头像 ---------------- */
+/* ---------------- 头像（emoji 属于用户内容，保留） ---------------- */
 .avatar-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: $gap-sm;
 }
 
 .avatar-item {
   width: 88rpx;
   height: 88rpx;
-  border-radius: 24rpx;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
+  border-radius: $radius;
+  background: $surface-sunken;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 44rpx;
+  font-size: 40rpx;
   border: 4rpx solid transparent;
   box-sizing: border-box;
 }
 
 .avatar-item.active {
-  border-color: #ff6b35;
-  box-shadow: 0 4rpx 14rpx rgba(255, 107, 53, 0.3);
+  background: $brand-soft;
+  border-color: $brand;
 }
 
 /* ---------------- 身份 ---------------- */
 .role-row {
   display: flex;
-  gap: 20rpx;
+  gap: $gap;
 }
 
-.role-chip {
+.role-card {
+  position: relative;
   flex: 1;
-  border-radius: 18rpx;
-  border: 2rpx solid #eee;
-  padding: 20rpx 16rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: #fafafa;
+  min-width: 0;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius;
+  padding: $gap;
+  box-sizing: border-box;
 }
 
-.role-chip.active {
-  border-color: #ff6b35;
-  background: #fff3ed;
+.role-card.active {
+  background: $brand-soft;
+  border-color: $brand-line;
 }
 
 .role-name {
-  font-size: 28rpx;
-  color: #333;
-  font-weight: 500;
-}
-
-.role-chip.active .role-name {
-  color: #ff6b35;
+  display: block;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $ink;
 }
 
 .role-desc {
-  font-size: 20rpx;
-  color: #aaa;
-  margin-top: 8rpx;
+  display: block;
+  font-size: $fs-tag;
+  color: $gray6;
+  margin-top: 6rpx;
 }
 
-/* ---------------- 按钮 ---------------- */
+.role-check {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+}
+
+/* ---------------- 操作 ---------------- */
 .submit-btn {
-  margin-top: 40rpx;
-  height: 92rpx;
-  line-height: 92rpx;
-  border-radius: 46rpx;
-  background: linear-gradient(135deg, #ff8c5a, #ff6b35);
+  margin-top: 48rpx;
+  height: $h-btn;
+  line-height: $h-btn;
+  border-radius: $radius-pill;
+  background: $brand;
   color: #fff;
-  font-size: 31rpx;
-  font-weight: 500;
+  font-size: $fs-card;
+  font-weight: $fw-medium;
   border: none;
-  box-shadow: 0 10rpx 24rpx rgba(255, 107, 53, 0.3);
+  box-shadow: $shadow-brand;
 }
 
-.submit-btn[disabled],
 .submit-btn.is-disabled {
-  background: #ffc7ae;
-  color: #fff;
+  opacity: 0.6;
   box-shadow: none;
 }
 
+.divider {
+  display: flex;
+  align-items: center;
+  margin-top: $gap-lg;
+}
+
+.divider-line {
+  flex: 1;
+  height: 2rpx;
+  background: $line;
+}
+
+.divider-text {
+  font-size: $fs-tag;
+  color: $gray4;
+  padding: 0 $gap;
+}
+
 .wechat-btn {
-  margin-top: 28rpx;
-  height: 88rpx;
-  border-radius: 44rpx;
-  background: #fff;
-  border: 2rpx solid #e8e8e8;
+  margin-top: $gap-lg;
+  height: $h-btn;
+  border-radius: $radius-pill;
+  background: $surface;
+  border: 2rpx solid $line;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
-  color: #333;
+  box-sizing: border-box;
 }
 
 .wechat-btn.disabled {
@@ -404,17 +431,21 @@ async function wxLogin() {
 }
 
 .wechat-icon {
-  font-size: 32rpx;
-  margin-right: 12rpx;
+  margin-right: $gap-sm;
+}
+
+.wechat-text {
+  font-size: $fs-body;
+  color: $gray7;
 }
 
 .footer {
   display: block;
-  font-size: 21rpx;
-  color: #bbb;
+  font-size: $fs-tag;
+  color: $gray4;
   text-align: center;
-  line-height: 1.7;
-  margin-top: 50rpx;
-  padding: 0 20rpx;
+  line-height: 1.6;
+  margin-top: 48rpx;
+  padding: 0 $gap;
 }
 </style>

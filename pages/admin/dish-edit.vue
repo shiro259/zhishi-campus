@@ -2,7 +2,7 @@
   <view class="edit-page">
     <!-- ================= 顶部标题 ================= -->
     <view class="hero">
-      <text class="hero-title">{{ isEdit ? '✏️ 编辑菜品' : '➕ 新增菜品' }}</text>
+      <text class="hero-title">{{ isEdit ? '编辑菜品' : '新增菜品' }}</text>
       <text class="hero-sub">
         {{ isEdit ? '修改后立即同步到菜品库与推荐结果' : '填好信息后即可被 AI 推荐命中' }}
       </text>
@@ -10,12 +10,12 @@
 
     <!-- ================= 加载中 / 加载失败 ================= -->
     <view class="state-box" v-if="loading">
-      <text class="state-emoji">⏳</text>
+      <Icon name="clock" :size="72" />
       <text class="state-text">菜品信息加载中…</text>
     </view>
 
     <view class="state-box" v-else-if="loadError">
-      <text class="state-emoji">😵</text>
+      <Icon name="warning" :size="72" />
       <text class="state-text">{{ loadError }}</text>
       <view class="retry-btn" @click="loadDetail">重新加载</view>
     </view>
@@ -24,6 +24,11 @@
     <block v-else>
       <!-- 基本信息 -->
       <view class="card">
+        <view class="card-head">
+          <text class="card-title">基本信息</text>
+          <text class="card-desc">菜名、价格、食堂与分类</text>
+        </view>
+
         <view class="field">
           <text class="field-label">菜品名称 <text class="req">*</text></text>
           <input
@@ -57,7 +62,7 @@
           >
             <view class="picker-value">
               <text class="picker-text">{{ form.canteen || '请选择食堂' }}</text>
-              <text class="picker-arrow">▾</text>
+              <Icon name="down" :size="24" />
             </view>
           </picker>
           <input
@@ -94,7 +99,7 @@
           >
             <view class="picker-value">
               <text class="picker-text">{{ form.category || '请选择分类' }}</text>
-              <text class="picker-arrow">▾</text>
+              <Icon name="down" :size="24" />
             </view>
           </picker>
           <input
@@ -111,7 +116,10 @@
 
       <!-- 口味 / 食材标签 -->
       <view class="card">
-        <text class="field-label">口味与食材标签（可多选）</text>
+        <view class="card-head">
+          <text class="card-title">口味与食材标签</text>
+          <text class="card-desc">可多选</text>
+        </view>
         <text class="hint hint-block">
           忌口过滤依赖菜品标签里的食材名：同学勾选「不吃花生」时，系统是靠这里的「花生」标签把菜排除掉的，
           所以口味词（辣、清淡）和食材词（花生、香菜）都要打上。
@@ -130,7 +138,10 @@
 
       <!-- 菜品图片 -->
       <view class="card">
-        <text class="field-label">菜品图片</text>
+        <view class="card-head">
+          <text class="card-title">菜品图片</text>
+          <text class="card-desc">实时预览</text>
+        </view>
         <text class="hint hint-block">
           留空则自动使用 static/dishes/ 下与菜名对应的本地图片；都没有时回退为 emoji 方块。
           也可填写云存储图片地址（uniCloud 云存储域名已在小程序白名单内）。
@@ -145,17 +156,18 @@
               placeholder="图片地址，如 static/dishes/d001.jpg"
               placeholder-class="ph"
             />
-            <view class="img-tips">
-              <text class="hint">当前：{{ form.image || '未配置，使用 emoji 占位' }}</text>
-            </view>
+            <text class="hint">当前：{{ form.image || '未配置，使用 emoji 占位' }}</text>
           </view>
         </view>
       </view>
 
-      <!-- emoji -->
+      <!-- 备用 emoji（菜品内容占位，不是界面图标） -->
       <view class="card">
-        <text class="field-label">备用图标（emoji）</text>
-        <text class="hint hint-block">没有图片时，列表与详情用这个 emoji 渲染成渐变方块</text>
+        <view class="card-head">
+          <text class="card-title">备用图标</text>
+          <text class="card-desc">emoji 占位</text>
+        </view>
+        <text class="hint hint-block">没有图片时，列表与详情用这个 emoji 渲染成占位方块</text>
         <view class="emoji-row">
           <view
             class="emoji-item"
@@ -169,7 +181,10 @@
 
       <!-- 描述 -->
       <view class="card">
-        <text class="field-label">菜品描述</text>
+        <view class="card-head">
+          <text class="card-title">菜品描述</text>
+          <text class="card-desc">{{ (form.description || '').length }}/60</text>
+        </view>
         <textarea
           class="textarea"
           v-model="form.description"
@@ -177,19 +192,16 @@
           placeholder="20~30 字介绍，例如：鸡丁配花生米，微辣下饭，川味窗口招牌"
           placeholder-class="ph"
         />
-        <text class="hint">{{ (form.description || '').length }}/60</text>
       </view>
-
-      <!-- 提交 -->
-      <button
-        class="save-btn"
-        :class="{ 'is-disabled': submitting }"
-        :disabled="submitting"
-        @click="save"
-      >
-        {{ submitting ? '保存中…' : isEdit ? '保存修改' : '创建菜品' }}
-      </button>
     </block>
+
+    <!-- ================= 底部操作条 ================= -->
+    <view class="op-bar" v-if="!loading && !loadError">
+      <view class="btn-ghost" @click="cancel">取消</view>
+      <view class="btn-primary" :class="{ 'is-disabled': submitting }" @click="save">
+        {{ submitting ? '保存中…' : isEdit ? '保存修改' : '创建菜品' }}
+      </view>
+    </view>
   </view>
 </template>
 
@@ -427,6 +439,10 @@ function validate() {
   return ''
 }
 
+async function cancel() {
+  uni.navigateBack()
+}
+
 async function save() {
   if (submitting.value) return
 
@@ -482,35 +498,37 @@ onLoad((options) => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .edit-page {
-  padding: 24rpx;
-  padding-bottom: 80rpx;
-  background: #f5f5f5;
   min-height: 100vh;
+  background: $canvas;
+  padding: $gap-page;
+  padding-bottom: 200rpx;
   box-sizing: border-box;
 }
 
 /* ---------------- 顶部 ---------------- */
 .hero {
-  background: linear-gradient(135deg, #333333, #4d4d4d);
-  border-radius: 24rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
 }
 
 .hero-title {
   display: block;
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #fff;
+  font-size: $fs-title;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .hero-sub {
   display: block;
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.65);
-  margin-top: 8rpx;
+  margin-top: $gap-sm;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 /* ---------------- 状态 ---------------- */
@@ -518,42 +536,65 @@ onLoad((options) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 140rpx 40rpx;
-  background: #fff;
-  border-radius: 24rpx;
-}
-
-.state-emoji {
-  font-size: 76rpx;
+  margin-top: $gap;
+  padding: 120rpx $gap-page;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
+  color: $gray4;
 }
 
 .state-text {
-  font-size: 26rpx;
-  color: #999;
-  margin-top: 18rpx;
+  margin-top: $gap;
+  font-size: $fs-sub;
+  color: $gray6;
   text-align: center;
   line-height: 1.6;
 }
 
 .retry-btn {
-  margin-top: 30rpx;
-  padding: 16rpx 48rpx;
-  background: #ff6b35;
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 26rpx;
+  margin-top: $gap-lg;
+  height: $h-btn-sm;
+  line-height: $h-btn-sm;
+  padding: 0 48rpx;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
 }
 
-/* ---------------- 表单 ---------------- */
+/* ---------------- 表单卡片 ---------------- */
 .card {
-  background: #fff;
-  border-radius: 22rpx;
-  padding: 26rpx 24rpx;
-  margin-bottom: 20rpx;
+  margin-top: $gap;
+  padding: $gap-card;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: $gap;
+}
+
+.card-title {
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
+}
+
+.card-desc {
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .field {
-  margin-bottom: 26rpx;
+  margin-bottom: 24rpx;
 }
 
 .field-last {
@@ -562,167 +603,191 @@ onLoad((options) => {
 
 .field-label {
   display: block;
-  font-size: 27rpx;
-  color: #333;
-  font-weight: 500;
-  margin-bottom: 16rpx;
+  margin-bottom: $gap-sm;
+  font-size: $fs-sub;
+  font-weight: $fw-medium;
+  color: $gray7;
 }
 
 .req {
-  color: #ff4d4f;
+  color: $danger;
 }
 
 .input {
   width: 100%;
-  height: 80rpx;
-  background: #f8f8f8;
-  border-radius: 14rpx;
-  padding: 0 20rpx;
-  font-size: 27rpx;
-  color: #333;
+  height: $h-input;
   box-sizing: border-box;
+  padding: 0 $gap;
+  background: $surface-sunken;
+  border-radius: $radius;
+  font-size: $fs-body;
+  color: $ink;
 }
 
 .input-gap {
-  margin-top: 14rpx;
+  margin-top: $gap-sm;
 }
 
 .ph {
-  color: #bbb;
-  font-size: 26rpx;
+  color: $gray4;
+  font-size: $fs-body;
 }
 
 .picker-value {
-  height: 80rpx;
-  background: #f8f8f8;
-  border-radius: 14rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20rpx;
+  height: $h-input;
+  padding: 0 $gap;
+  background: $surface-sunken;
+  border-radius: $radius;
+  color: $gray6;
 }
 
 .picker-text {
-  font-size: 27rpx;
-  color: #333;
-}
-
-.picker-arrow {
-  font-size: 22rpx;
-  color: #999;
+  font-size: $fs-body;
+  color: $ink;
 }
 
 .hint {
   display: block;
-  font-size: 21rpx;
-  color: #aaa;
-  margin-top: 12rpx;
+  margin-top: $gap-sm;
+  font-size: $fs-cap;
+  color: $gray6;
   line-height: 1.6;
 }
 
 .hint-block {
-  margin-bottom: 18rpx;
   margin-top: 0;
+  margin-bottom: $gap;
 }
 
 /* ---------------- 标签 chips ---------------- */
 .chip-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 14rpx;
+  gap: $gap-sm;
 }
 
 .chip {
-  padding: 12rpx 26rpx;
-  background: #f5f5f5;
-  border-radius: 26rpx;
-  font-size: 25rpx;
-  color: #666;
-  border: 2rpx solid transparent;
+  height: 64rpx;
+  line-height: 60rpx;
+  padding: 0 26rpx;
+  box-sizing: border-box;
+  background: $surface-sunken;
+  border: 2rpx solid $surface-sunken;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
 }
 
 .chip.warn {
-  color: #a86b00;
-  background: #fffbe6;
+  background: $warning-soft;
+  border-color: $warning-soft;
+  color: $warning;
 }
 
 .chip.active {
-  background: #fff3ed;
-  color: #ff6b35;
-  border-color: #ff6b35;
-  font-weight: 500;
+  background: $brand-soft;
+  border-color: $brand;
+  color: $brand;
+  font-weight: $fw-medium;
 }
 
 /* ---------------- 菜品图片 ---------------- */
 .img-row {
   display: flex;
   align-items: flex-start;
-  gap: 22rpx;
 }
 
 .img-side {
   flex: 1;
   min-width: 0;
+  margin-left: $gap;
 }
 
-.img-tips {
-  margin-top: 10rpx;
-}
-
-/* ---------------- emoji ---------------- */
+/* ---------------- emoji 占位（菜品内容，非界面图标） ---------------- */
 .emoji-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: $gap-sm;
 }
 
 .emoji-item {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 22rpx;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 44rpx;
-  border: 4rpx solid transparent;
+  width: 88rpx;
+  height: 88rpx;
   box-sizing: border-box;
+  background: $surface-sunken;
+  border: 4rpx solid transparent;
+  border-radius: $radius;
+  font-size: 44rpx;
 }
 
 .emoji-item.active {
-  border-color: #ff6b35;
-  box-shadow: 0 4rpx 14rpx rgba(255, 107, 53, 0.3);
+  border-color: $brand;
+  background: $brand-soft;
 }
 
 /* ---------------- textarea ---------------- */
 .textarea {
   width: 100%;
-  height: 170rpx;
-  background: #f8f8f8;
-  border-radius: 14rpx;
-  padding: 18rpx 20rpx;
-  font-size: 27rpx;
-  color: #333;
+  height: 180rpx;
   box-sizing: border-box;
+  padding: $gap;
+  background: $surface-sunken;
+  border-radius: $radius;
+  font-size: $fs-body;
+  color: $ink;
+  line-height: 1.6;
 }
 
-/* ---------------- 保存 ---------------- */
-.save-btn {
-  margin-top: 30rpx;
-  height: 92rpx;
-  line-height: 92rpx;
-  border-radius: 46rpx;
-  background: linear-gradient(135deg, #ff8c5a, #ff6b35);
+/* ---------------- 底部操作条 ---------------- */
+.op-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: $gap $gap-page;
+  padding-bottom: 48rpx;
+  background: $surface;
+  border-top: 2rpx solid $line;
+  z-index: 20;
+}
+
+.btn-ghost {
+  width: 220rpx;
+  height: $h-btn;
+  line-height: $h-btn;
+  text-align: center;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $gray7;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+}
+
+.btn-primary {
+  flex: 1;
+  height: $h-btn;
+  line-height: $h-btn;
+  margin-left: $gap;
+  text-align: center;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
   color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
-  border: none;
-  box-shadow: 0 10rpx 24rpx rgba(255, 107, 53, 0.3);
+  background: $brand;
+  border-radius: $radius-pill;
+  box-shadow: $shadow-brand;
 }
 
-.save-btn[disabled],
-.save-btn.is-disabled {
-  background: #ffc7ae;
+.btn-primary.is-disabled {
+  opacity: 0.6;
   box-shadow: none;
 }
 </style>

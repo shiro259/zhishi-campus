@@ -1,60 +1,70 @@
 <template>
   <view class="user-page">
-    <!-- ==================== 头部：已登录 / 未登录 ==================== -->
-    <view class="header">
-      <!-- 已登录 -->
-      <view class="header-main" v-if="isLogin">
+    <!-- ==================== 身份区 ==================== -->
+    <view class="card">
+      <view class="head-row">
         <view class="avatar">
           <image
-            v-if="profile.avatar"
+            v-if="isLogin && profile.avatar"
             class="avatar-img"
             :src="profile.avatar"
             mode="aspectFill"
           />
-          <text v-else class="avatar-emoji">😋</text>
+          <text v-else-if="isLogin" class="avatar-char">{{ avatarChar }}</text>
+          <Icon v-else name="user" :size="40" color="#B8B2AA" />
         </view>
-        <view class="header-info">
+        <view class="head-info">
           <view class="name-row">
-            <text class="nickname">{{ profile.nickname || '同学' }}</text>
-            <text class="role-tag" :class="{ 'role-admin': isAdminRole }">{{ roleLabel }}</text>
+            <text class="nickname">{{ isLogin ? nicknameText : '未登录' }}</text>
+            <text class="role-tag" v-if="isLogin" :class="{ 'is-admin': isAdminRole }">{{ roleLabel }}</text>
           </view>
-          <text class="uid">ID: {{ uidText }}</text>
+          <text class="uid">{{ isLogin ? 'ID: ' + uidText : '登录后可同步昵称与身份' }}</text>
         </view>
-        <text class="edit-entry" @click="goEditProfile">编辑资料 ›</text>
+        <view class="head-edit" v-if="isLogin" @click="goEditProfile">
+          <text class="head-edit-text">编辑</text>
+          <Icon name="right" :size="24" color="#B8B2AA" />
+        </view>
       </view>
 
       <!-- 未登录：不强制跳转，点击按钮才去登录页 -->
-      <view class="header-main" v-else>
-        <view class="avatar">
-          <text class="avatar-emoji">👤</text>
-        </view>
-        <view class="header-info">
-          <text class="nickname">未登录</text>
-          <text class="uid">登录后可同步昵称与身份</text>
-        </view>
-        <view class="login-btn" @click="goLogin">
-          <text class="login-btn-text">点击登录</text>
+      <view class="head-login" v-if="!isLogin">
+        <view class="btn-primary" @click="goLogin">
+          <text class="btn-primary-text">点击登录</text>
         </view>
       </view>
     </view>
 
     <!-- ==================== 我的口味档案 ==================== -->
-    <view class="card pref-card" @click="goRecommend">
+    <view class="card" @click="goRecommend">
       <view class="card-head">
-        <text class="card-title">🍽️ 我的口味档案</text>
-        <text class="card-more">去推荐 ›</text>
+        <text class="card-title">我的口味档案</text>
+        <view class="card-action" @click.stop="goRecommend">
+          <text class="card-action-text">编辑</text>
+          <Icon name="right" :size="24" color="#FF5A36" />
+        </view>
       </view>
 
       <template v-if="pref">
-        <text class="pref-label">{{ prefLabel }}</text>
-        <view class="pref-chips" v-if="prefChips.length">
-          <text class="chip" v-for="c in prefChips" :key="c">{{ c }}</text>
+        <view class="chip-row" v-if="prefChips.length">
+          <view
+            class="chip"
+            v-for="c in prefChips"
+            :key="c.text"
+            :class="{ 'is-taste': c.kind === 'taste' }"
+          >{{ c.text }}</view>
+        </view>
+
+        <view class="card-foot">
+          <text class="clear-btn" @click.stop="clearPref">清除档案</text>
         </view>
       </template>
-      <text class="pref-empty" v-else>还没设置口味偏好，去设置一个吧</text>
 
-      <view class="pref-actions" v-if="pref">
-        <text class="clear-btn" @click.stop="clearPref">清除口味档案</text>
+      <view class="empty" v-else>
+        <Icon name="clipboard" :size="56" color="#D8D3CB" />
+        <text class="empty-text">还没设置口味偏好</text>
+        <view class="btn-primary is-inline" @click.stop="goRecommend">
+          <text class="btn-primary-text">去设置</text>
+        </view>
       </view>
     </view>
 
@@ -62,27 +72,29 @@
     <view class="card menu-card">
       <!-- 我的评价 -->
       <view class="menu-item" @click="toggleReviews">
-        <text class="menu-icon">📝</text>
+        <Icon name="edit" :size="28" color="#8A8580" />
         <text class="menu-text">我的评价</text>
         <text class="menu-ext" v-if="reviews.length">{{ reviews.length }} 条</text>
-        <text class="menu-arrow">{{ showReviews ? '⌃' : '›' }}</text>
+        <Icon :name="showReviews ? 'up' : 'down'" :size="28" color="#B8B2AA" />
       </view>
 
       <!-- 我的评价：就地展开 -->
       <view class="panel" v-if="showReviews">
-        <view class="panel-loading" v-if="loadingReviews">
-          <text class="panel-tip">正在加载评价…</text>
-        </view>
+        <text class="panel-tip" v-if="loadingReviews">正在加载评价…</text>
         <template v-else-if="reviews.length">
           <view class="review-item" v-for="r in reviews" :key="r._id || r.id">
             <view class="review-head">
+              <view class="rv-avatar">
+                <text class="rv-avatar-char">{{ firstChar(r.nickname) }}</text>
+              </view>
               <text class="review-nick">{{ r.nickname || '匿名同学' }}</text>
               <text class="review-status" v-if="r.status === 0">审核中</text>
-              <text class="review-time">{{ formatTime(r.create_date) }}</text>
             </view>
             <view class="review-stars">
-              <text class="stars">{{ stars(r.rating) }}</text>
-              <text class="score">{{ formatRating(r.rating) }} 分</text>
+              <view class="rv-star" v-for="n in 5" :key="n">
+                <Icon name="star" :size="28" :color="n <= (Number(r.rating) || 0) ? '#FF5A36' : '#B8B2AA'" />
+              </view>
+              <text class="review-time">{{ formatTime(r.create_date) }}</text>
             </view>
             <text class="review-content">{{ r.content }}</text>
           </view>
@@ -92,17 +104,18 @@
 
       <!-- 推荐历史 -->
       <view class="menu-item" @click="toggleHistory">
-        <text class="menu-icon">🕘</text>
+        <Icon name="clock" :size="28" color="#8A8580" />
         <text class="menu-text">推荐历史</text>
         <text class="menu-ext" v-if="history.length">最近 {{ history.length }} 条</text>
-        <text class="menu-arrow">{{ showHistory ? '⌃' : '›' }}</text>
+        <Icon :name="showHistory ? 'up' : 'down'" :size="28" color="#B8B2AA" />
       </view>
 
       <!-- 推荐历史：就地展开 -->
       <view class="panel" v-if="showHistory">
         <template v-if="history.length">
           <view class="history-item" v-for="(h, i) in history" :key="i">
-            <view class="history-head">
+            <view class="history-row">
+              <view class="dot"></view>
               <text class="history-label">{{ historyLabel(h) }}</text>
               <text class="history-time">{{ formatTime(h.time) }}</text>
             </view>
@@ -117,24 +130,23 @@
 
       <!-- 管理后台：仅管理员可见 -->
       <view class="menu-item" v-if="isAdminRole" @click="goAdmin">
-        <text class="menu-icon">🛠️</text>
+        <Icon name="settings" :size="28" color="#8A8580" />
         <text class="menu-text">管理后台</text>
-        <text class="menu-arrow">›</text>
+        <Icon name="right" :size="28" color="#B8B2AA" />
       </view>
 
       <!-- 关于项目 -->
       <view class="menu-item" @click="showAbout">
-        <text class="menu-icon">ℹ️</text>
+        <Icon name="info" :size="28" color="#8A8580" />
         <text class="menu-text">关于项目</text>
-        <text class="menu-arrow">›</text>
+        <Icon name="right" :size="28" color="#B8B2AA" />
       </view>
     </view>
 
     <!-- ==================== 退出登录 ==================== -->
-    <view class="card menu-card" v-if="isLogin">
-      <view class="menu-item" @click="logout">
-        <text class="menu-icon">🚪</text>
-        <text class="menu-text logout-text">退出登录</text>
+    <view class="card" v-if="isLogin">
+      <view class="logout-row" @click="logout">
+        <text class="logout-text">退出登录</text>
       </view>
     </view>
   </view>
@@ -151,7 +163,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { userApi, recommendApi, reviewApi, buildPrefLabel } from '@/api/index.js'
-import { clearAuth, formatTime, renderStars } from '@/common/utils.js'
+import { clearAuth, formatTime } from '@/common/utils.js'
 
 /* -------------------------------- 页面状态 -------------------------------- */
 
@@ -172,33 +184,32 @@ const isAdminRole = computed(() => !!profile.value && profile.value.role === 'ad
 
 const roleLabel = computed(() => (isAdminRole.value ? '管理员' : '普通同学'))
 
+const nicknameText = computed(() => (profile.value && profile.value.nickname) || '同学')
+
+/** 头像占位：昵称首字（不使用 emoji 头像） */
+const avatarChar = computed(() => {
+  const name = String(nicknameText.value).trim()
+  return name ? name.slice(0, 1) : '同'
+})
+
 /** uid 后 6 位，展示成 ID: xxxxxx */
 const uidText = computed(() => {
   const id = String(uid.value || '')
   return id ? id.slice(-6) : '------'
 })
 
-/** 上次偏好的一句话标签（与推荐历史同一套风格） */
-const prefLabel = computed(() => {
-  const p = pref.value
-  if (!p) return ''
-  try {
-    return buildPrefLabel(p)
-  } catch (e) {
-    return '已保存口味偏好'
-  }
-})
-
-/** 偏好拆成小标签：口味 / 忌口 / 预算 / 食堂 / 补充 */
+/** 偏好拆成小标签：口味（主色）/ 忌口、预算、食堂（中性） */
 const prefChips = computed(() => {
   const p = pref.value || {}
   const chips = []
-  if (p.meal_type) chips.push(p.meal_type)
-  if (p.taste && p.taste.length) chips.push('爱' + p.taste.join('·'))
-  if (p.allergies && p.allergies.length) chips.push('忌' + p.allergies.join('·'))
-  if (p.budget) chips.push(p.budget + ' 元内')
-  if (p.canteen) chips.push(p.canteen)
-  if (p.extra) chips.push(String(p.extra))
+  if (p.meal_type) chips.push({ text: p.meal_type, kind: 'plain' })
+  if (p.taste && p.taste.length) chips.push({ text: '爱' + p.taste.join('·'), kind: 'taste' })
+  if (p.allergies && p.allergies.length) {
+    chips.push({ text: '忌' + p.allergies.join('·'), kind: 'plain' })
+  }
+  if (p.budget) chips.push({ text: p.budget + ' 元内', kind: 'plain' })
+  if (p.canteen) chips.push({ text: p.canteen, kind: 'plain' })
+  if (p.extra) chips.push({ text: String(p.extra), kind: 'plain' })
   return chips
 })
 
@@ -337,13 +348,10 @@ function goAdmin() {
 
 /* -------------------------------- 展示辅助 -------------------------------- */
 
-function stars(rating) {
-  return renderStars(Number(rating) || 0)
-}
-
-function formatRating(rating) {
-  const n = Number(rating)
-  return Number.isFinite(n) ? n.toFixed(1) : '—'
+/** 昵称首字，用于头像占位 */
+function firstChar(name) {
+  const s = String(name || '').trim()
+  return s ? s.slice(0, 1) : '匿'
 }
 
 /** 历史记录标签：优先用记录自带的 label，否则按偏好现算一次 */
@@ -358,107 +366,24 @@ function historyLabel(item) {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
+/* ==================== 页面 ==================== */
 .user-page {
   min-height: 100vh;
-  background: #f5f5f5;
-  padding-bottom: 60rpx;
+  box-sizing: border-box;
+  background: $canvas;
+  padding: $gap-page $gap-page 60rpx;
 }
 
-/* -------------------- 头部 -------------------- */
-
-.header {
-  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
-  padding: 44rpx 30rpx;
-}
-
-.header-main {
-  display: flex;
-  align-items: center;
-}
-
-.avatar {
-  width: 128rpx;
-  height: 128rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  border: 4rpx solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.avatar-img {
-  width: 128rpx;
-  height: 128rpx;
-}
-
-.avatar-emoji {
-  font-size: 68rpx;
-}
-
-.header-info {
-  flex: 1;
-  margin-left: 24rpx;
-  overflow: hidden;
-}
-
-.name-row {
-  display: flex;
-  align-items: center;
-}
-
-.nickname {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #fff;
-}
-
-.role-tag {
-  font-size: 20rpx;
-  color: #FF6B35;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 20rpx;
-  padding: 4rpx 16rpx;
-  margin-left: 16rpx;
-}
-
-.role-tag.role-admin {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.28);
-}
-
-.uid {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.88);
-  margin-top: 10rpx;
-  display: block;
-}
-
-.edit-entry {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.login-btn {
-  border: 2rpx solid #fff;
-  border-radius: 40rpx;
-  padding: 14rpx 36rpx;
-}
-
-.login-btn-text {
-  font-size: 28rpx;
-  color: #fff;
-}
-
-/* -------------------- 通用卡片 -------------------- */
-
+/* ==================== 通用卡片 ==================== */
 .card {
-  margin: 24rpx;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 28rpx 24rpx;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
+  margin-bottom: $gap;
 }
 
 .card-head {
@@ -468,136 +393,232 @@ function historyLabel(item) {
 }
 
 .card-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
-.card-more {
-  font-size: 24rpx;
-  color: #FF6B35;
+.card-action {
+  display: flex;
+  align-items: center;
 }
 
-/* -------------------- 口味档案 -------------------- */
+.card-action-text {
+  font-size: $fs-sub;
+  color: $brand;
+}
 
-.pref-label {
-  font-size: 28rpx;
-  color: #333;
-  margin-top: 20rpx;
-  display: block;
+.card-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: $gap-sm;
+}
+
+/* ==================== 主按钮 ==================== */
+.btn-primary {
+  height: $h-btn;
+  background: $brand;
+  border-radius: $radius-pill;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: $shadow-brand;
+}
+
+.btn-primary.is-inline {
+  padding: 0 56rpx;
+}
+
+.btn-primary-text {
+  color: #fff;
+  font-size: $fs-card;
+  font-weight: $fw-medium;
+}
+
+/* ==================== 身份区 ==================== */
+.head-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: $surface-sunken;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 88rpx;
+  height: 88rpx;
+}
+
+.avatar-char {
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
+}
+
+.head-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: $gap;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+}
+
+.nickname {
+  font-size: $fs-title;
+  font-weight: $fw-bold;
+  color: $ink;
+}
+
+.role-tag {
+  height: 40rpx;
   line-height: 40rpx;
+  padding: 0 16rpx;
+  margin-left: $gap-sm;
+  border-radius: $radius-pill;
+  font-size: $fs-tag;
+  background: $surface-sunken;
+  color: $gray6;
 }
 
-.pref-empty {
-  font-size: 26rpx;
-  color: #999;
-  margin-top: 20rpx;
+.role-tag.is-admin {
+  background: $brand-soft;
+  color: $brand;
+}
+
+.uid {
   display: block;
+  margin-top: 8rpx;
+  font-size: $fs-tag;
+  color: $gray4;
 }
 
-.pref-chips {
+.head-edit {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.head-edit-text {
+  font-size: $fs-sub;
+  color: $gray6;
+}
+
+.head-login {
+  margin-top: $gap-lg;
+}
+
+/* ==================== 口味档案 ==================== */
+.chip-row {
   display: flex;
   flex-wrap: wrap;
-  margin-top: 18rpx;
+  margin-top: $gap;
 }
 
 .chip {
-  font-size: 22rpx;
-  color: #FF6B35;
-  background: #FFF0EB;
-  border-radius: 20rpx;
-  padding: 6rpx 20rpx;
-  margin: 0 16rpx 16rpx 0;
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 24rpx;
+  margin: 0 $gap-sm $gap-sm 0;
+  background: $surface-sunken;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-cap;
+  color: $gray7;
 }
 
-.pref-actions {
-  margin-top: 8rpx;
-  display: flex;
-  justify-content: flex-end;
+/* 口味用主色，忌口 / 预算 / 食堂保持中性 */
+.chip.is-taste {
+  background: $brand-soft;
+  border-color: $brand-line;
+  color: $brand;
 }
 
 .clear-btn {
-  font-size: 24rpx;
-  color: #999;
-  border: 1rpx solid #e5e5e5;
-  border-radius: 30rpx;
-  padding: 8rpx 28rpx;
+  padding: 8rpx 0;
+  font-size: $fs-cap;
+  color: $gray4;
 }
 
-/* -------------------- 功能列表 -------------------- */
+/* 空态 */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $gap 0 $gap-sm;
+}
 
+.empty-text {
+  margin: $gap-sm 0 $gap;
+  font-size: $fs-sub;
+  color: $gray6;
+}
+
+/* ==================== 功能列表 ==================== */
 .menu-card {
-  padding: 0 24rpx;
+  padding: 0 $gap-card;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 30rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  height: 104rpx;
+  box-sizing: border-box;
+  border-top: 2rpx solid $line;
 }
 
-.menu-item:last-child {
-  border-bottom: none;
-}
-
-.menu-icon {
-  font-size: 34rpx;
-  margin-right: 20rpx;
+.menu-card > .menu-item:first-child {
+  border-top: none;
 }
 
 .menu-text {
   flex: 1;
-  font-size: 28rpx;
-  color: #333;
-}
-
-.menu-text.logout-text {
-  color: #ff4d4f;
+  margin-left: $gap;
+  font-size: $fs-body;
+  color: $ink;
 }
 
 .menu-ext {
-  font-size: 22rpx;
-  color: #bbb;
-  margin-right: 12rpx;
+  margin-right: $gap-sm;
+  font-size: $fs-tag;
+  color: $gray4;
 }
 
-.menu-arrow {
-  font-size: 30rpx;
-  color: #ccc;
-}
-
-/* -------------------- 展开面板 -------------------- */
-
+/* ==================== 展开区 ==================== */
 .panel {
-  padding: 12rpx 0 24rpx;
-  border-bottom: 1rpx solid #f5f5f5;
+  padding: $gap 0 $gap-lg;
 }
 
 .panel-tip {
-  font-size: 24rpx;
-  color: #bbb;
   display: block;
-  padding: 16rpx 0;
-}
-
-.panel-loading {
-  padding: 16rpx 0;
+  padding: $gap 0;
+  font-size: $fs-sub;
+  color: $gray4;
 }
 
 .panel-foot {
-  margin-top: 12rpx;
   display: flex;
   justify-content: flex-end;
+  margin-top: $gap-sm;
 }
 
 /* 我的评价 */
-
 .review-item {
-  background: #fafafa;
-  border-radius: 16rpx;
-  padding: 22rpx;
-  margin-bottom: 16rpx;
+  background: $surface-sunken;
+  border-radius: $radius;
+  padding: $gap;
+  margin-bottom: $gap-sm;
 }
 
 .review-item:last-child {
@@ -609,90 +630,121 @@ function historyLabel(item) {
   align-items: center;
 }
 
+.rv-avatar {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: $surface;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rv-avatar-char {
+  font-size: $fs-cap;
+  font-weight: $fw-medium;
+  color: $gray7;
+}
+
 .review-nick {
-  font-size: 26rpx;
-  font-weight: 500;
-  color: #333;
+  flex: 1;
+  margin-left: $gap-sm;
+  font-size: $fs-sub;
+  font-weight: $fw-medium;
+  color: $ink;
 }
 
 .review-status {
-  font-size: 20rpx;
-  color: #FF9800;
-  background: #FFF6E5;
-  border-radius: 8rpx;
-  padding: 2rpx 12rpx;
-  margin-left: 12rpx;
-}
-
-.review-time {
-  flex: 1;
-  text-align: right;
-  font-size: 22rpx;
-  color: #bbb;
+  height: 36rpx;
+  line-height: 36rpx;
+  padding: 0 14rpx;
+  border-radius: $radius-pill;
+  font-size: $fs-tag;
+  background: $warning-soft;
+  color: $warning;
+  flex-shrink: 0;
 }
 
 .review-stars {
-  margin-top: 10rpx;
   display: flex;
   align-items: center;
+  margin-top: $gap-sm;
 }
 
-.stars {
-  font-size: 24rpx;
-  color: #FFB300;
+.rv-star {
+  margin-right: 6rpx;
 }
 
-.score {
-  font-size: 22rpx;
-  color: #FF9800;
-  margin-left: 12rpx;
+.review-time {
+  margin-left: auto;
+  font-size: $fs-tag;
+  color: $gray4;
 }
 
 .review-content {
-  font-size: 26rpx;
-  color: #555;
-  margin-top: 12rpx;
   display: block;
-  line-height: 38rpx;
+  margin-top: $gap-sm;
+  font-size: $fs-sub;
+  color: $gray7;
+  line-height: 1.6;
 }
 
 /* 推荐历史 */
-
 .history-item {
-  background: #fafafa;
-  border-radius: 16rpx;
-  padding: 20rpx;
-  margin-bottom: 16rpx;
+  background: $surface-sunken;
+  border-radius: $radius;
+  padding: $gap-sm $gap;
+  margin-bottom: $gap-sm;
 }
 
 .history-item:last-child {
   margin-bottom: 0;
 }
 
-.history-head {
+.history-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: $brand;
+  flex-shrink: 0;
 }
 
 .history-label {
   flex: 1;
-  font-size: 26rpx;
-  font-weight: 500;
-  color: #333;
+  margin-left: $gap-sm;
+  font-size: $fs-sub;
+  color: $gray7;
 }
 
 .history-time {
-  font-size: 22rpx;
-  color: #bbb;
-  margin-left: 16rpx;
+  font-size: $fs-tag;
+  color: $gray4;
 }
 
 .history-summary {
-  font-size: 24rpx;
-  color: #777;
-  margin-top: 10rpx;
   display: block;
-  line-height: 36rpx;
+  margin: 6rpx 0 0 24rpx;
+  font-size: $fs-cap;
+  color: $gray4;
+  line-height: 1.6;
+}
+
+/* ==================== 退出登录 ==================== */
+.logout-row {
+  height: $h-btn;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-text {
+  font-size: $fs-body;
+  color: $danger;
 }
 </style>

@@ -1,5 +1,41 @@
 # 更新日志
 
+## 3.0.2（修复"菜品名称都不见了"）
+- **修复** 菜品图片缺失时渲染成"加载失败的破图"，看起来像界面内容全没了
+  - 根因：`dishImageSrc` 按 `id` 拼出 `static/dishes/d001.jpg` 就直接交给 `<image>`，**不检查文件是否真实存在**；而该目录里 40 张图一张都没有，于是每张卡片都渲染一个加载失败的占位图，H5 下满屏破图
+  - 修复一：新增 `common/dish-images.js`（构建期图片清单，由脚本生成），`dishImageSrc` 对本地约定路径**先查清单再返回**，文件不存在直接返回空串 → 组件走 emoji 回退，不发起必然失败的请求
+  - 修复二：新增 `scripts/gen-dish-images.mjs` 生成/更新该清单；`download-dish-images.mjs` 下载完成后自动重建清单（否则"图下载了却不显示"）
+  - 修复三：自检新增「图片清单与实际文件一致性」校验，清单过期会直接报错
+  - 清理：删除旧抓图脚本留下的孤儿文件 `static/dishes/10_红烧排骨.jpg`
+- **新增** `scripts/test-dish-image.mjs`：13 条断言覆盖"文件存在/不存在/云存储外链/emoji 回退/真实菜谱联调"等分支
+
+## 3.0.1（修复编译报错）
+- **修复** H5 / Vite 下编译失败：`[plugin:vite:css] [sass] Undefined variable: $canvas`
+  - 根因：`uni.scss` 的「自动注入」在 H5 + Vite 编译链下**不生效**，只在 HBuilderX 的 App/小程序链路生效；此前页面直接使用 `$brand`、`$canvas` 等令牌因此全部报未定义
+  - 修复：在全部 **16 个 `<style lang="scss">` 块的首行**显式加上 `@import '@/common/tokens.scss';`，两条编译链都能工作
+- **修复** `pages/review/review.vue` 的 `calc(#{$gap} + env(...))`：SCSS 插值输出的是无单位的 `20`，编译后是非法 CSS `calc(20 + env(...))`；改为静态内边距
+- **修复** 自检脚本的**校验盲区**：设计规范检查此前只扫 `pages/`，导致 `App.vue`（全局样式，正是最早报错的文件）与 `components/` 完全没被检查；现已一并纳入
+- **移除** 模板遗留的 `components/uni-section` 与 `components/config.json`（无任何引用，且带旧配色）
+- **新增** `scripts/check-scss-ready.mjs`：校验每个 SCSS 块都有 `@import`、文件编码为无 BOM 的 UTF-8、中文未损坏
+- **新增** `scripts/check-scss-syntax.mjs`：扫描会导致 sass 编译失败或产生非法 CSS 的写法（花括号/引号配对、`@include` 未定义 mixin、单位重复、空属性值、`calc` 内插值）
+- **新增** `scripts/check-import-first.mjs` / `scripts/test-import-check.mjs`：确认 `@import` 位于块首，并验证该检查本身有效
+- **调整** `self-check.mjs --icons` 不再用子进程调用其它脚本（受限沙箱下子进程无法通过管道回传输出，`spawnSync` 会直接 EPERM），改为提示手动运行
+
+## 3.0.0（界面重构：简约设计系统）
+- **新增设计系统** `common/tokens.scss`：把颜色 / 字号 / 字重 / 圆角 / 间距 / 投影集中为设计令牌，经 `uni.scss` 全局注入，页面里直接使用 `$brand`、`$ink` 等变量；完整规范见 `DESIGN.md`
+- **新增图标系统** `common/icons.js` + `components/Icon/Icon.vue`：28 个内联 SVG 线性图标，替代全项目用 emoji 充当界面图标的做法（emoji 在机型间字形与基线不一致，是"作业感"的主要来源）
+- **新增** `scripts/generate-tabbar-icons.mjs`：自己实现 SVG path 解析（含椭圆弧转贝塞尔）+ PNG 编码（Node 内置 zlib）+ 4× 超采样抗锯齿，把同一套图标光栅化成 tabBar 图标，无需任何第三方依赖
+- **新增** `scripts/verify-png.mjs` / `scripts/test-rasterizer.mjs`：在没有图片库、没有截图能力的前提下，用 33 条断言校验图标产物的 PNG 结构、尺寸、配色、覆盖率、抗锯齿与**图形结构朝向**（例如"肩弧向上鼓"而非实心块）
+- **重构** 全部 14 个页面的视觉：
+  - 去掉所有彩色渐变卡片/横幅，改为白底 + `2rpx` 描边 + 大圆角 + 极浅投影
+  - 全项目只保留一个强调色（品牌橙），其余为中性灰阶；层次改由字号、字重、留白承担
+  - 导航栏统一白底黑字；首页改为定制导航（问候语 + 昵称 + 头像 + 搜索胶囊）
+  - 菜品列表改两列卡片网格；菜品详情改大图主视觉；评价、我的、后台全部卡片化
+  - 统计卡从彩色渐变改为「小标签 + 大号数字 + 状态小圆点」
+- **修复** `common/icons.js` 中 `user` / `clock` 图标路径错误（`A` 圆弧实际未生效，图标画得不成形）
+- **修复** SVG path 解析器**未按规范处理 `A` 命令的 flag 参数**：`a9 9 0 100 18` 里的 `100` 必须读成 `large-arc=1, sweep=0, x=0`，用正则切分数字会把整圆解析成错乱曲线
+- **增强自检** `scripts/self-check.mjs`：新增设计规范校验（硬编码色值、SCSS 令牌存在性、图标名合法性、`<style lang="scss">` 声明）、导入图覆盖 `components/`（修复 `common/icons.js` 被误判为死代码）、`--icons` 参数可一并校验图标产物
+
 ## 2.1.0（菜品配图）
 - **新增** 菜品照片展示：新增 `components/DishImage/DishImage.vue` 统一入口组件，有图显示照片、无图自动回退 emoji 渐变方块、加载失败运行时也能回退，不会出现破图
 - **新增** `common/utils.js` 的 `dishImageSrc / dishEmoji / hasDishImage`：图片地址解析（后台地址 → 本地 `static/dishes/<id>.jpg` → emoji）

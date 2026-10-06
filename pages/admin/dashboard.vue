@@ -3,27 +3,30 @@
     <!-- ================= 顶部标题 ================= -->
     <view class="hero">
       <view class="hero-main">
-        <text class="hero-title">📊 数据看板</text>
+        <text class="hero-title">数据看板</text>
         <text class="hero-sub">食遇校园 · 菜品与推荐运营概览</text>
       </view>
-      <text class="hero-refresh" @click="load">刷新</text>
+      <view class="hero-refresh" @click="load">
+        <Icon name="refresh" :size="26" />
+        <text class="hero-refresh-text">刷新</text>
+      </view>
     </view>
 
     <!-- ================= 本地数据提示 ================= -->
     <view class="notice" v-if="engine === 'local'">
-      <text class="notice-icon">📴</text>
+      <Icon name="info" :size="32" />
       <text class="notice-text">当前使用本地离线数据</text>
     </view>
 
     <!-- ================= 加载中 ================= -->
     <view class="state-box" v-if="loading">
-      <text class="state-emoji">⏳</text>
+      <Icon name="clock" :size="72" />
       <text class="state-text">数据加载中…</text>
     </view>
 
     <!-- ================= 加载失败 ================= -->
     <view class="state-box" v-else-if="error">
-      <text class="state-emoji">😵</text>
+      <Icon name="warning" :size="72" />
       <text class="state-text">{{ error }}</text>
       <view class="retry-btn" @click="load">重新加载</view>
     </view>
@@ -32,39 +35,39 @@
     <block v-else>
       <!-- 四张统计卡 -->
       <view class="stat-grid">
-        <view class="stat-card stat-dish">
-          <view class="stat-head">
-            <text class="stat-label">菜品总数</text>
-            <text class="stat-icon">🍜</text>
+        <view class="stat-card">
+          <text class="stat-label">菜品总数</text>
+          <view class="stat-value">
+            <view class="stat-dot dot-brand"></view>
+            <text class="stat-num">{{ overview.dish_total || 0 }}</text>
           </view>
-          <text class="stat-num">{{ overview.dish_total || 0 }}</text>
           <text class="stat-unit">道在售菜品</text>
         </view>
 
-        <view class="stat-card stat-canteen">
-          <view class="stat-head">
-            <text class="stat-label">食堂数量</text>
-            <text class="stat-icon">🏫</text>
+        <view class="stat-card">
+          <text class="stat-label">食堂数量</text>
+          <view class="stat-value">
+            <view class="stat-dot dot-success"></view>
+            <text class="stat-num">{{ overview.canteen_total || 0 }}</text>
           </view>
-          <text class="stat-num">{{ overview.canteen_total || 0 }}</text>
           <text class="stat-unit">个就餐区域</text>
         </view>
 
-        <view class="stat-card stat-rating">
-          <view class="stat-head">
-            <text class="stat-label">平均评分</text>
-            <text class="stat-icon">⭐</text>
+        <view class="stat-card">
+          <text class="stat-label">平均评分</text>
+          <view class="stat-value">
+            <view class="stat-dot dot-warning"></view>
+            <text class="stat-num">{{ avgRatingText }}</text>
           </view>
-          <text class="stat-num">{{ avgRatingText }}</text>
           <text class="stat-unit">满分 5.0</text>
         </view>
 
-        <view class="stat-card stat-price">
-          <view class="stat-head">
-            <text class="stat-label">人均价格</text>
-            <text class="stat-icon">💰</text>
+        <view class="stat-card">
+          <text class="stat-label">人均价格</text>
+          <view class="stat-value">
+            <view class="stat-dot dot-neutral"></view>
+            <text class="stat-num">{{ avgPriceText }}</text>
           </view>
-          <text class="stat-num">{{ avgPriceText }}</text>
           <text class="stat-unit">元 / 道</text>
         </view>
       </view>
@@ -72,13 +75,13 @@
       <!-- 食堂菜品分布 -->
       <view class="card">
         <view class="card-head">
-          <text class="card-title">🏪 食堂菜品分布</text>
+          <text class="card-title">食堂菜品分布</text>
           <text class="card-tip">共 {{ dishList.length }} 道</text>
         </view>
         <view class="bar-row" v-for="c in canteenStats" :key="c.name">
           <text class="bar-name">{{ c.name }}</text>
           <view class="bar-track">
-            <view class="bar-fill fill-canteen" :style="{ width: c.width + '%' }"></view>
+            <view class="bar-fill" :style="{ width: c.width + '%' }"></view>
           </view>
           <text class="bar-value">{{ c.count }} 道 · {{ c.percent }}%</text>
         </view>
@@ -88,13 +91,13 @@
       <!-- 口味标签热度 -->
       <view class="card">
         <view class="card-head">
-          <text class="card-title">🌶️ 口味标签热度</text>
+          <text class="card-title">口味标签热度</text>
           <text class="card-tip">TOP 8</text>
         </view>
         <view class="bar-row" v-for="t in tagStats" :key="t.name">
           <text class="bar-name">{{ t.name }}</text>
           <view class="bar-track">
-            <view class="bar-fill fill-tag" :style="{ width: t.width + '%' }"></view>
+            <view class="bar-fill" :style="{ width: t.width + '%' }"></view>
           </view>
           <text class="bar-value">{{ t.count }} 次 · {{ t.percent }}%</text>
         </view>
@@ -104,12 +107,12 @@
       <!-- Top 推荐菜品 -->
       <view class="card">
         <view class="card-head">
-          <text class="card-title">🔥 Top 推荐菜品</text>
+          <text class="card-title">Top 推荐菜品</text>
           <text class="card-tip">按推荐次数</text>
         </view>
         <view class="top-row" v-for="(d, i) in topDishes" :key="d.id || d._id || i">
-          <text class="top-rank" :class="{ hot: i < 3 }">{{ i + 1 }}</text>
-          <DishImage :dish="d" :size="80" :radius="10" />
+          <text class="top-rank">{{ i + 1 }}</text>
+          <DishImage :dish="d" :size="80" :radius="16" />
           <view class="top-main">
             <text class="top-name">{{ d.name }}</text>
             <text class="top-sub">{{ d.canteen }}{{ d.window ? ' · ' + d.window : '' }}</text>
@@ -273,11 +276,12 @@ onPullDownRefresh(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .dash-page {
-  padding: 24rpx;
-  background: #f5f5f5;
   min-height: 100vh;
+  background: $canvas;
+  padding: $gap-page;
   box-sizing: border-box;
 }
 
@@ -285,203 +289,212 @@ onPullDownRefresh(() => {
 .hero {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, #333333, #4d4d4d);
-  border-radius: 24rpx;
-  padding: 32rpx 30rpx;
-  margin-bottom: 20rpx;
+  justify-content: space-between;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
 }
 
 .hero-main {
   flex: 1;
+  min-width: 0;
 }
 
 .hero-title {
   display: block;
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #fff;
+  font-size: $fs-title;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .hero-sub {
   display: block;
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.65);
-  margin-top: 8rpx;
+  margin-top: $gap-sm;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .hero-refresh {
-  font-size: 24rpx;
-  color: #ff6b35;
-  background: rgba(255, 107, 53, 0.14);
-  border-radius: 24rpx;
-  padding: 10rpx 26rpx;
+  display: flex;
+  align-items: center;
+  height: 56rpx;
+  padding: 0 22rpx;
+  border-radius: $radius-pill;
+  background: $surface-sunken;
+  color: $brand;
+  flex-shrink: 0;
+}
+
+.hero-refresh-text {
+  margin-left: 8rpx;
+  font-size: $fs-cap;
+  color: $brand;
 }
 
 /* ---------------- 提示 / 状态 ---------------- */
 .notice {
   display: flex;
   align-items: center;
-  background: #fffbe6;
-  border-radius: 16rpx;
-  padding: 18rpx 22rpx;
-  margin-bottom: 20rpx;
-}
-
-.notice-icon {
-  font-size: 24rpx;
-  margin-right: 10rpx;
+  margin-top: $gap;
+  padding: 20rpx $gap-card;
+  background: $warning-soft;
+  border-radius: $radius;
+  color: $warning;
 }
 
 .notice-text {
   flex: 1;
-  font-size: 22rpx;
-  color: #a86b00;
+  margin-left: $gap-sm;
+  font-size: $fs-cap;
+  color: $warning;
 }
 
 .state-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 140rpx 40rpx;
-  background: #fff;
-  border-radius: 24rpx;
-}
-
-.state-emoji {
-  font-size: 76rpx;
+  margin-top: $gap;
+  padding: 120rpx $gap-page;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
+  color: $gray4;
 }
 
 .state-text {
-  font-size: 26rpx;
-  color: #999;
-  margin-top: 18rpx;
+  margin-top: $gap;
+  font-size: $fs-sub;
+  color: $gray6;
   text-align: center;
   line-height: 1.6;
 }
 
 .retry-btn {
-  margin-top: 30rpx;
-  padding: 16rpx 48rpx;
-  background: #ff6b35;
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 26rpx;
+  margin-top: $gap-lg;
+  height: $h-btn-sm;
+  line-height: $h-btn-sm;
+  padding: 0 48rpx;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
 }
 
 /* ---------------- 统计卡 ---------------- */
 .stat-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
-  margin-bottom: 20rpx;
+  gap: $gap;
+  margin-top: $gap;
 }
 
 .stat-card {
   width: calc(50% - 10rpx);
-  border-radius: 22rpx;
-  padding: 26rpx 24rpx;
   box-sizing: border-box;
-}
-
-.stat-dish {
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
-}
-
-.stat-canteen {
-  background: linear-gradient(135deg, #eef4ff, #dfe9ff);
-}
-
-.stat-rating {
-  background: linear-gradient(135deg, #fff8e6, #ffefc7);
-}
-
-.stat-price {
-  background: linear-gradient(135deg, #eefaf3, #d9f2e4);
-}
-
-.stat-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: $gap-card;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
 }
 
 .stat-label {
-  font-size: 24rpx;
-  color: #666;
+  display: block;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
-.stat-icon {
-  font-size: 32rpx;
+.stat-value {
+  display: flex;
+  align-items: center;
+  margin-top: $gap-sm;
+}
+
+.stat-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  margin-right: $gap-sm;
+  flex-shrink: 0;
+}
+
+.dot-brand {
+  background: $brand;
+}
+
+.dot-success {
+  background: $success;
+}
+
+.dot-warning {
+  background: $warning;
+}
+
+.dot-neutral {
+  background: $gray4;
 }
 
 .stat-num {
-  display: block;
-  font-size: 56rpx;
-  font-weight: bold;
-  margin-top: 14rpx;
+  font-size: $fs-display;
+  font-weight: $fw-bold;
+  color: $ink;
   line-height: 1.1;
-}
-
-.stat-dish .stat-num {
-  color: #ff6b35;
-}
-
-.stat-canteen .stat-num {
-  color: #3b6fd6;
-}
-
-.stat-rating .stat-num {
-  color: #e39b00;
-}
-
-.stat-price .stat-num {
-  color: #2ba58c;
 }
 
 .stat-unit {
   display: block;
-  font-size: 20rpx;
-  color: #999;
-  margin-top: 6rpx;
+  margin-top: 8rpx;
+  font-size: $fs-tag;
+  color: $gray6;
 }
 
 /* ---------------- 卡片 ---------------- */
 .card {
-  background: #fff;
-  border-radius: 22rpx;
-  padding: 26rpx 24rpx;
-  margin-bottom: 20rpx;
+  margin-top: $gap;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
 }
 
 .card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
+  margin-bottom: $gap-card;
 }
 
 .card-title {
-  font-size: 29rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: $fs-card;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .card-tip {
-  font-size: 21rpx;
-  color: #bbb;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 /* ---------------- 条形图 ---------------- */
 .bar-row {
   display: flex;
   align-items: center;
-  margin-bottom: 20rpx;
+  margin-bottom: $gap;
+}
+
+.bar-row:last-child {
+  margin-bottom: 0;
 }
 
 .bar-name {
   width: 150rpx;
-  font-size: 24rpx;
-  color: #333;
+  font-size: $fs-cap;
+  color: $gray7;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -489,46 +502,39 @@ onPullDownRefresh(() => {
 
 .bar-track {
   flex: 1;
-  height: 22rpx;
-  background: #f2f2f2;
-  border-radius: 11rpx;
+  height: 12rpx;
+  background: $surface-sunken;
+  border-radius: $radius-pill;
   overflow: hidden;
   margin: 0 16rpx;
 }
 
 .bar-fill {
   height: 100%;
-  border-radius: 11rpx;
-}
-
-.fill-canteen {
-  background: linear-gradient(90deg, #ff6b35, #ffa06b);
-}
-
-.fill-tag {
-  background: linear-gradient(90deg, #667eea, #9b8cf0);
+  border-radius: $radius-pill;
+  background: $brand;
 }
 
 .bar-value {
-  width: 160rpx;
+  width: 170rpx;
   text-align: right;
-  font-size: 21rpx;
-  color: #888;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .mini-empty {
-  text-align: center;
-  font-size: 24rpx;
-  color: #bbb;
   padding: 40rpx 0;
+  text-align: center;
+  font-size: $fs-cap;
+  color: $gray4;
 }
 
 /* ---------------- Top 推荐 ---------------- */
 .top-row {
   display: flex;
   align-items: center;
-  padding: 14rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid $line;
 }
 
 .top-row:last-child {
@@ -538,25 +544,22 @@ onPullDownRefresh(() => {
 .top-rank {
   width: 44rpx;
   text-align: center;
-  font-size: 26rpx;
-  font-weight: bold;
-  color: #ccc;
-}
-
-.top-rank.hot {
-  color: #ff6b35;
+  font-size: $fs-sub;
+  font-weight: $fw-medium;
+  color: $gray4;
 }
 
 .top-main {
   flex: 1;
   min-width: 0;
+  margin-left: $gap;
 }
 
 .top-name {
   display: block;
-  font-size: 27rpx;
-  color: #333;
-  font-weight: 500;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $ink;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -564,14 +567,19 @@ onPullDownRefresh(() => {
 
 .top-sub {
   display: block;
-  font-size: 21rpx;
-  color: #999;
   margin-top: 6rpx;
+  font-size: $fs-cap;
+  color: $gray6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top-count {
-  font-size: 24rpx;
-  color: #ff6b35;
-  font-weight: bold;
+  font-size: $fs-body;
+  font-weight: $fw-bold;
+  color: $brand;
+  flex-shrink: 0;
+  margin-left: $gap-sm;
 }
 </style>

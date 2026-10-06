@@ -135,12 +135,34 @@ function localDishList(params = {}) {
 }
 
 /**
+ * 本地种子菜谱的菜名集合：云端种子库与本地同源（由 shiyu-seed 初始化），
+ * 用来辨认云端是否已经正确播种，避免把一两条手工测试菜当成完整菜单。
+ */
+const LOCAL_DISH_NAMES = new Set(
+  LOCAL_DISHES.filter((d) => d.status === 1 && d.name).map((d) => d.name)
+)
+
+/** 统计云端返回行里与本地种子菜同名的条数 */
+function countKnownDishNames(rows) {
+  return (rows || []).filter(
+    (d) => d && typeof d.name === 'string' && LOCAL_DISH_NAMES.has(d.name.trim())
+  ).length
+}
+
+/**
  * 云函数数据是否可信
  *
  * 背景：老版本的菜品集合里可能残留没有 `status` 字段的数据。云函数的列表查询带
  * `where({status: 1})`，这类数据查不出来；而食堂/分类枚举不带该条件，于是会出现
- * 「食堂列表里有一食堂、点进去一道菜都没有」的矛盾。这里通过一次零成本校验
- * （用本地菜谱比对云端返回的食堂枚举）识别这种陈旧数据，识别到就整体退回本地数据源。
+ * 「食堂列表里有一食堂、点进去一道菜都没有」的矛盾。除此之外，云端只手工加过
+ * 一两条测试菜（从未执行种子初始化）时，云函数同样会「成功」返回，
+ * 让前端误以为云端已初始化而跳过本地兜底。这里通过三类校验识别：
+ *
+ * 1. 字段完整性：菜名/食堂缺失（undefined）或菜名为空白字符串 → 脏数据；
+ * 2. 食堂名自洽：返回的食堂名必须是本地菜谱里真实存在的食堂；
+ * 3. 种子辨识度：云端总量不足 10 道且没有任何一道与本地种子菜同名
+ *    → 视为「云端菜品库尚未初始化」，整库退回本地 40 道；
+ *    正常初始化过的云端有 40 道同名菜，绝不会误判。
  *
  * @param {Object} res 云函数返回的菜品列表结果
  * @returns {boolean} true 表示云端数据自洽可用
@@ -153,14 +175,20 @@ function isCloudDishDataTrustworthy(res) {
   // 云端本来就没有数据（还没执行「数据初始化」）→ 交给本地菜谱兜底
   if (!list.length || !total) return false
 
-  // 云端返回的菜品缺少 status / canteen 等关键字段 → 说明是旧结构数据
-  const broken = list.filter((d) => d && (d.canteen === undefined || d.name === undefined))
+  // 云端返回的菜品缺少 canteen / name 等关键字段，或菜名为空白 → 旧结构/脏数据
+  const broken = list.filter(
+    (d) => d && (d.canteen === undefined || d.name === undefined || !String(d.name).trim())
+  )
   if (broken.length) return false
 
   // 返回的食堂名必须是本地菜谱认识的食堂
   const localNames = getLocalCanteens()
   const unknown = list.filter((d) => d.canteen && localNames.indexOf(d.canteen) < 0)
   if (unknown.length) return false
+
+  // 云端总量明显少于种子库（不足 10 道），且当前页里没有任何一道与本地种子菜同名
+  // → 几乎可以肯定只是手工测试数据（云空间一旦用种子初始化，至少会有 40 道同名菜）
+  if (total < 10 && countKnownDishNames(list) === 0) return false
 
   return true
 }
@@ -214,8 +242,10 @@ export const dishApi = {
     try {
       const data = await callCloud(CLOUD_FN.dish, { action: 'rank', type, limit })
       const rows = Array.isArray(data) ? data : (data && data.list) || []
-      // 云端榜单为空（未初始化菜品库）时退回本地，避免首页整片空白
+      // 云端榜单为空，或榜单里没有任何一道种子菜（库里只有零散测试菜）时
+      // 退回本地，避免首页被一两条测试菜占满
       if (!rows.length) throw new Error('云端榜单为空')
+      if (countKnownDishNames(rows) === 0) throw new Error('云端榜单未包含种子菜品')
       return { list: rows, engine: 'cloud' }
     } catch (e) {
       let list = LOCAL_DISHES.filter((d) => d.status === 1)
@@ -370,20 +400,31 @@ export const recommendApi = {
       merged.meal_type = merged.meal_type || parsed.meal_type
     }
 
+    /** 用本地 40 道菜跑规则引擎的兜底结果 */
+    const useLocalEngine = (notice) => {
+      const local = localRecommend(merged, LOCAL_DISHES)
+      return { ...local, engine: 'local', notice: notice || '已使用本地智能规则' }
+    }
+
     let result
     try {
       // 注意：云函数会自带 engine 字段（ai 表示真·大模型，local 表示云端规则兜底），
       // 因此这里直接透传，不能再用 fromCloud 覆盖成 'cloud'
       result = await callCloud(CLOUD_FN.recommend, { pref: merged, text: text || '' })
       result = { engine: 'cloud', ...(result || {}) }
+
+      // 云端菜品库若未正确初始化（只有一两条手工测试菜），大模型也只能在脏数据里挑，
+      // 会把测试菜当成高匹配结果返回。与榜单/列表同口径校验：
+      // 推荐为空、或推荐菜里没有任何一道本地种子菜 → 整单改用本地 40 道菜重新推荐。
+      const rows = (result && result.recommendations) || []
+      if (!rows.length || countKnownDishNames(rows) === 0) {
+        result = useLocalEngine('云端菜品库尚未初始化，已改用本地 40 道食堂菜品为你推荐')
+      }
     } catch (e) {
       // 云端不可用 → 用本地全量菜品跑规则引擎
-      const local = localRecommend(merged, LOCAL_DISHES)
-      result = {
-        ...local,
-        engine: 'local',
-        notice: e.message ? `云端推荐不可用（${e.message}），已使用本地智能规则` : '已使用本地智能规则'
-      }
+      result = useLocalEngine(
+        e.message ? `云端推荐不可用（${e.message}），已使用本地智能规则` : '已使用本地智能规则'
+      )
     }
 
     pushHistory(merged, result.summary)
@@ -525,7 +566,27 @@ export const reviewApi = {
         })
       )
     } catch (e) {
+      // 口令错误必须明示：否则页面会用本地空数据伪装成「暂无待审核」
+      if (isAdminAuthError(e)) throw e
       const list = readLocalReviews().filter((r) => r.status === 0)
+      return { list, total: list.length, hasMore: false, engine: 'local' }
+    }
+  },
+
+  /** 全部评价（管理端）：含待审核 / 已通过 / 已拒绝 */
+  async all(params = {}) {
+    try {
+      return fromCloud(
+        await callCloud(CLOUD_FN.review, {
+          action: 'all',
+          token: getAdminToken(),
+          ...params
+        })
+      )
+    } catch (e) {
+      if (isAdminAuthError(e)) throw e
+      // 云端不可用时退本地全量（含各种状态），管理页至少能看本机数据
+      const list = readLocalReviews()
       return { list, total: list.length, hasMore: false, engine: 'local' }
     }
   },
@@ -537,6 +598,8 @@ export const reviewApi = {
         await callCloud(CLOUD_FN.review, { action: 'audit', id, status, token: getAdminToken() })
       )
     } catch (e) {
+      // 口令错误必须抛给页面：绝不能只改本地存储还弹「已通过」，否则云端状态永远不变
+      if (isAdminAuthError(e)) throw e
       const list = readLocalReviews()
       const target = list.find((r) => r._id === id)
       if (target) {
@@ -565,6 +628,22 @@ export function getAdminToken() {
   } catch (e) {
     return ''
   }
+}
+
+/** 持久化管理员手动填写的口令（在「AI 配置」页填对一次后，审核/菜品管理共用） */
+export function saveAdminToken(token) {
+  const value = String(token || '').trim()
+  if (!value) return
+  try {
+    uni.setStorageSync(STORAGE.adminToken, value)
+  } catch (e) {
+    // 存储失败不阻塞主流程
+  }
+}
+
+/** 云函数返回的是否为管理口令相关错误（这类错误不能静默走本地兜底，否则页面会假装成功） */
+function isAdminAuthError(e) {
+  return ((e && e.message) || '').indexOf('口令') >= 0
 }
 
 export const configApi = {

@@ -21,7 +21,16 @@
 
 ---
 
-## 二、技术架构
+## 二、界面设计
+
+采用**克制型简约风格**（参考小程序大赛获奖产品的共同特征）：只用一个强调色，其余为中性灰阶；靠字号、字重、留白拉开层次，而不是靠渐变与阴影堆叠；界面图标统一用内联 SVG 线性图标，不用 emoji 充当图标。
+
+- 设计令牌集中在 `common/tokens.scss`（颜色 / 字号 / 字重 / 圆角 / 间距 / 投影）
+- 基础组件：`<Icon>`（线性图标）、`<DishImage>`（菜品图，缺图自动回退）
+- 导航栏统一白底黑字，首页定制导航（问候语 + 搜索）
+- **完整规范见 [`DESIGN.md`](./DESIGN.md)**，可用 `node scripts/self-check.mjs` 自动校验违规项
+
+## 三、技术架构
 
 ```
 ┌─────────────────────────── uni-app 前端（Vue3 + script setup） ───────────────────────────┐
@@ -54,16 +63,21 @@
 
 ---
 
-## 三、目录结构
+## 四、目录结构
 
 ```
 ├── api/
 │   └── index.js                 # 统一 API 适配层（云函数优先 + 本地兜底）
 ├── common/
+│   ├── tokens.scss               # 设计令牌（颜色/字号/圆角/间距/投影）
+│   ├── icons.js                  # 线性 SVG 图标库
 │   ├── constants.js             # 口味/忌口/预算/服务商等常量
 │   ├── local-dishes.js          # 40 道本地菜品数据（离线兜底）
 │   ├── recommend-engine.js      # 客户端推荐规则引擎 + 自然语言解析
 │   └── utils.js                 # 通用工具
+├── components/
+│   ├── Icon/Icon.vue             # 线性图标组件（内联 SVG）
+│   └── DishImage/DishImage.vue   # 菜品图（缺图回退 emoji）
 ├── pages/
 │   ├── index/index.vue          # 首页（AI 推荐入口 + 榜单）
 │   ├── recommend/recommend.vue  # ★ AI 智能推荐（核心页）
@@ -96,7 +110,7 @@
 
 ---
 
-## 四、快速开始
+## 五、快速开始
 
 ### 方式 A：纯本地运行（无需云空间，立刻可看效果）
 
@@ -126,7 +140,7 @@
 
 ---
 
-## 五、AI 推荐链路详解
+## 六、AI 推荐链路详解
 
 `uniCloud-aliyun/cloudfunctions/shiyu-recommend/index.js` 的完整流程：
 
@@ -145,7 +159,7 @@
 
 ---
 
-## 六、数据来源标识
+## 七、数据来源标识
 
 接口返回都会带 `engine` 字段，页面据此提示用户：
 
@@ -181,10 +195,15 @@ node scripts/download-dish-images.mjs
 
 ### 手动配图（两种方式）
 
-1. **直接放文件**：把图片命名为 `static/dishes/d001.jpg`（编号见 `scripts/dish-image-map.json`）
+1. **直接放文件**：把图片命名为 `static/dishes/d001.jpg`（编号见 `scripts/dish-image-map.json`），
+   然后运行 `node scripts/gen-dish-images.mjs` 更新图片清单
 2. **后台填写地址**：管理后台 → 菜品管理 → 编辑 → 菜品图片，填图片地址（支持云存储地址）
 
-图片缺失时页面会自动回退成 emoji 渐变方块，不会出现破图。
+> **图片清单机制**：`common/dish-images.js` 记录 `static/dishes/` 下实际存在哪些图片（由脚本生成）。
+> 组件据此在渲染前判断图片是否存在，**不存在就直接走 emoji 回退**，不会发起必然失败的请求，
+> 更不会出现满屏"加载失败"的破图。增删图片后必须重新生成清单，`self-check` 会校验一致性。
+
+图片缺失时页面会自动回退成 emoji 方块，不会出现破图。
 
 ### 图片状态的检查
 
@@ -229,3 +248,5 @@ node scripts/self-check.mjs
 - 菜品图缺失时统一回退为 emoji 占位，避免破图；配图后自动切换为照片。
 - 身份信息（昵称 / 头像 / 口味档案 / 推荐历史）保存在本机 Storage，不上传服务器；评价内容会写入云端并需管理员审核。
 - 图片抓取脚本仅下载 Wikimedia Commons 上的**自由授权**作品，并生成署名清单，请勿替换为来源不明的图片。
+
+

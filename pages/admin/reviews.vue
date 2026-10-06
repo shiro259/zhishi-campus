@@ -2,9 +2,9 @@
   <view class="reviews-page">
     <!-- ================= 顶部标题 ================= -->
     <view class="hero">
-      <text class="hero-title">📝 评价审核</text>
+      <text class="hero-title">评价审核</text>
       <text class="hero-sub">
-        通过后评价才会在菜品详情页公开展示 · 共 {{ total }} 条
+        通过后才会在菜品详情页公开展示 · 共 {{ total }} 条
       </text>
     </view>
 
@@ -14,32 +14,40 @@
         class="tab"
         :class="{ active: tab === 'pending' }"
         @click="switchTab('pending')"
-      >待审核</view>
+      >
+        <text class="tab-text">待审核</text>
+      </view>
       <view
         class="tab"
         :class="{ active: tab === 'all' }"
         @click="switchTab('all')"
-      >全部</view>
+      >
+        <text class="tab-text">全部</text>
+      </view>
     </view>
 
     <!-- ================= 加载中 ================= -->
     <view class="state-box" v-if="loading">
-      <text class="state-emoji">⏳</text>
+      <Icon name="clock" :size="72" />
       <text class="state-text">评价加载中…</text>
     </view>
 
     <!-- ================= 加载失败 ================= -->
     <view class="state-box" v-else-if="error">
-      <text class="state-emoji">😵</text>
+      <Icon name="warning" :size="72" />
       <text class="state-text">{{ error }}</text>
+      <!-- 口令错误是最常见原因：直接引导去 AI 配置页填写，不要让管理员对着空列表无从下手 -->
+      <view class="retry-btn primary" v-if="authError" @click="goConfig">
+        去填写管理口令
+      </view>
       <view class="retry-btn" @click="reload">重新加载</view>
     </view>
 
     <!-- ================= 空态 ================= -->
     <view class="state-box" v-else-if="!list.length">
-      <text class="state-emoji">{{ tab === 'pending' ? '🎉' : '📭' }}</text>
+      <Icon name="check" :size="72" />
       <text class="state-text">
-        {{ tab === 'pending' ? '暂无待审核评价，辛苦啦 🎉' : '还没有评价数据' }}
+        {{ tab === 'pending' ? '暂无待审核评价，辛苦啦' : '还没有评价数据' }}
       </text>
     </view>
 
@@ -47,10 +55,10 @@
     <view class="list" v-else>
       <view class="item" v-for="r in list" :key="r._id || r.id">
         <view class="item-head">
-          <text class="avatar">{{ r.avatar || '😋' }}</text>
+          <text class="avatar">{{ avatarText(r.nickname) }}</text>
           <view class="head-main">
             <text class="nickname">{{ r.nickname || '匿名同学' }}</text>
-            <text class="dish-name">🍽️ {{ r.dish_name || r.dish_id || '未知菜品' }}</text>
+            <text class="dish-name">{{ r.dish_name || r.dish_id || '未知菜品' }}</text>
           </view>
           <text class="status-tag" :class="'status-' + statusOf(r.status)">
             {{ statusText(r.status) }}
@@ -58,8 +66,17 @@
         </view>
 
         <view class="stars-row">
-          <text class="stars">{{ renderStars(Number(r.rating || 0)) }}</text>
-          <text class="rating-num">{{ Number(r.rating || 0).toFixed(1) }} 分</text>
+          <view class="stars">
+            <view
+              class="star"
+              v-for="n in 5"
+              :key="n"
+              :class="{ on: n <= starCount(r.rating) }"
+            >
+              <Icon name="star" :size="28" />
+            </view>
+          </view>
+          <text class="score">{{ Number(r.rating || 0).toFixed(1) }} 分</text>
           <text class="time">{{ formatTime(r.create_date) }}</text>
         </view>
 
@@ -82,14 +99,14 @@
 /**
  * 评价审核
  *
- * 待审核 → reviewApi.pending()；全部 → reviewApi.list()。
+ * 待审核 → reviewApi.pending()；全部 → reviewApi.all()（含所有审核状态）。
  * 审核通过/拒绝 → reviewApi.audit({ id, status })，状态就地更新，不整页重载。
  * 评价状态：0 待审核 / 1 已通过 / 2 已拒绝。
  */
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { reviewApi } from '@/api/index.js'
-import { formatTime, renderStars, getUserInfo } from '@/common/utils.js'
+import { formatTime, getUserInfo } from '@/common/utils.js'
 
 /** 待审核一页 20 条；「全部」按需求一次取 50 条 */
 const PAGE_SIZE = { pending: 20, all: 50 }
@@ -111,6 +128,13 @@ function toast(title) {
   uni.showToast({ title, icon: 'none' })
 }
 
+/** 是否为管理口令错误（用于展示「去填写口令」入口） */
+const authError = computed(() => error.value.indexOf('口令') >= 0)
+
+function goConfig() {
+  uni.navigateTo({ url: '/pages/admin/ai-config' })
+}
+
 /* ------------------------------ 展示辅助 ------------------------------ */
 
 function statusOf(status) {
@@ -125,6 +149,19 @@ function statusText(status) {
   return '待审核'
 }
 
+/** 星级：四舍五入取整，用于决定点亮几颗星 */
+function starCount(rating) {
+  const n = Math.round(Number(rating) || 0)
+  if (n < 0) return 0
+  return n > 5 ? 5 : n
+}
+
+/** 头像用昵称首字，避免用 emoji 充当界面元素 */
+function avatarText(nickname) {
+  const name = String(nickname || '').trim()
+  return name ? name.slice(0, 1) : '匿'
+}
+
 /* ------------------------------ 数据加载 ------------------------------ */
 
 async function fetchPage(targetPage, append) {
@@ -135,8 +172,9 @@ async function fetchPage(targetPage, append) {
 
   try {
     const params = { page: targetPage, pageSize: PAGE_SIZE[tab.value] }
+    // pending 只看待审核；all 看全部状态（管理接口，需口令），不能用公开的 list（只含已通过）
     const res =
-      tab.value === 'pending' ? await reviewApi.pending(params) : await reviewApi.list(params)
+      tab.value === 'pending' ? await reviewApi.pending(params) : await reviewApi.all(params)
 
     // 请求期间用户切了 tab，丢弃这次结果
     if (token !== seq) return
@@ -197,7 +235,20 @@ async function audit(r, status) {
     r.status = status
     uni.showToast({ title: status === 1 ? '已通过' : '已拒绝', icon: 'success' })
   } catch (e) {
-    toast('操作失败：' + ((e && e.message) || '请检查云端配置'))
+    const msg = (e && e.message) || '请检查云端配置'
+    if (msg.indexOf('口令') >= 0) {
+      // 口令不对时列表接口通常也已失败并停在错误页；兜底再弹一次引导
+      uni.showModal({
+        title: '管理口令校验失败',
+        content: '请在「AI 配置」页填写正确的管理口令后再审核',
+        confirmText: '去填写',
+        success: (res) => {
+          if (res.confirm) goConfig()
+        }
+      })
+    } else {
+      toast('操作失败：' + msg)
+    }
   }
 }
 
@@ -237,55 +288,72 @@ onPullDownRefresh(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .reviews-page {
-  padding: 24rpx;
-  background: #f5f5f5;
   min-height: 100vh;
+  background: $canvas;
+  padding: $gap-page;
   box-sizing: border-box;
 }
 
 /* ---------------- 顶部 ---------------- */
 .hero {
-  background: linear-gradient(135deg, #333333, #4d4d4d);
-  border-radius: 24rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  padding: $gap-card;
+  box-shadow: $shadow-card;
 }
 
 .hero-title {
   display: block;
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #fff;
+  font-size: $fs-title;
+  font-weight: $fw-bold;
+  color: $ink;
 }
 
 .hero-sub {
   display: block;
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.65);
-  margin-top: 8rpx;
+  margin-top: $gap-sm;
+  font-size: $fs-cap;
+  color: $gray6;
+  line-height: 1.6;
 }
 
 /* ---------------- Tabs ---------------- */
 .tabs {
   display: flex;
-  margin-bottom: 20rpx;
+  margin-top: $gap;
+  border-bottom: 2rpx solid $line;
 }
 
 .tab {
-  padding: 14rpx 44rpx;
-  background: #fff;
-  border-radius: 34rpx;
-  font-size: 26rpx;
-  color: #666;
-  margin-right: 16rpx;
+  position: relative;
+  padding: 0 8rpx 20rpx;
+  margin-right: 48rpx;
 }
 
-.tab.active {
-  background: #ff6b35;
-  color: #fff;
-  font-weight: 500;
+.tab-text {
+  font-size: $fs-body;
+  color: $gray6;
+}
+
+.tab.active .tab-text {
+  color: $ink;
+  font-weight: $fw-bold;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -2rpx;
+  width: 48rpx;
+  height: 4rpx;
+  margin-left: -24rpx;
+  background: $brand;
+  border-radius: $radius-pill;
 }
 
 /* ---------------- 状态 ---------------- */
@@ -293,43 +361,56 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 140rpx 40rpx;
-  background: #fff;
-  border-radius: 24rpx;
-}
-
-.state-emoji {
-  font-size: 76rpx;
+  margin-top: $gap;
+  padding: 120rpx $gap-page;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
+  color: $gray4;
 }
 
 .state-text {
-  font-size: 26rpx;
-  color: #999;
-  margin-top: 18rpx;
+  margin-top: $gap;
+  font-size: $fs-sub;
+  color: $gray6;
   text-align: center;
   line-height: 1.6;
 }
 
 .retry-btn {
-  margin-top: 30rpx;
-  padding: 16rpx 48rpx;
-  background: #ff6b35;
+  margin-top: $gap-lg;
+  height: $h-btn-sm;
+  line-height: $h-btn-sm;
+  padding: 0 48rpx;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+  font-size: $fs-sub;
+  color: $gray7;
+}
+
+.retry-btn.primary {
   color: #fff;
-  border-radius: 40rpx;
-  font-size: 26rpx;
+  background: $brand;
+  border-color: $brand;
+  box-shadow: $shadow-brand;
 }
 
 /* ---------------- 列表 ---------------- */
 .list {
   display: flex;
   flex-direction: column;
+  margin-top: $gap;
 }
 
 .item {
-  background: #fff;
-  border-radius: 22rpx;
-  padding: 26rpx 24rpx;
-  margin-bottom: 18rpx;
+  margin-bottom: $gap-sm;
+  padding: $gap-card;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
 }
 
 .item-head {
@@ -338,16 +419,17 @@ onPullDownRefresh(() => {
 }
 
 .avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 38rpx;
-  margin-right: 18rpx;
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  margin-right: $gap-sm;
   flex-shrink: 0;
+  text-align: center;
+  background: $surface-sunken;
+  border-radius: 50%;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $gray7;
 }
 
 .head-main {
@@ -357,110 +439,126 @@ onPullDownRefresh(() => {
 
 .nickname {
   display: block;
-  font-size: 27rpx;
-  color: #333;
-  font-weight: 500;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $ink;
 }
 
 .dish-name {
   display: block;
-  font-size: 21rpx;
-  color: #999;
-  margin-top: 6rpx;
+  margin-top: 4rpx;
+  font-size: $fs-cap;
+  color: $gray6;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .status-tag {
-  font-size: 20rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 18rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: $radius-pill;
+  font-size: $fs-tag;
   flex-shrink: 0;
 }
 
 .status-0 {
-  background: #fff3e0;
-  color: #e6871a;
+  background: $warning-soft;
+  color: $warning;
 }
 
 .status-1 {
-  background: #e8f8f0;
-  color: #2ba58c;
+  background: $success-soft;
+  color: $success;
 }
 
 .status-2 {
-  background: #fdecec;
-  color: #e64340;
+  background: $danger-soft;
+  color: $danger;
 }
 
+/* ---------------- 星级 ---------------- */
 .stars-row {
   display: flex;
   align-items: center;
-  margin-top: 16rpx;
+  margin-top: $gap;
 }
 
 .stars {
-  font-size: 25rpx;
-  color: #ff9800;
+  display: flex;
+  align-items: center;
 }
 
-.rating-num {
-  font-size: 21rpx;
-  color: #ff9800;
-  margin-left: 10rpx;
+.star {
+  margin-right: 6rpx;
+  color: $gray4;
+}
+
+.star.on {
+  color: $brand;
+}
+
+.score {
+  margin-left: $gap-sm;
+  font-size: $fs-cap;
+  color: $gray7;
 }
 
 .time {
   flex: 1;
   text-align: right;
-  font-size: 21rpx;
-  color: #bbb;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .content {
   display: block;
-  font-size: 26rpx;
-  color: #555;
+  margin-top: $gap-sm;
+  font-size: $fs-sub;
+  color: $gray7;
   line-height: 1.7;
-  margin-top: 14rpx;
 }
 
 /* ---------------- 审核按钮 ---------------- */
 .actions {
   display: flex;
-  margin-top: 20rpx;
+  align-items: center;
+  margin-top: $gap;
 }
 
 .act-btn {
   flex: 1;
+  height: $h-btn-sm;
+  line-height: $h-btn-sm;
   text-align: center;
-  padding: 18rpx 0;
-  border-radius: 16rpx;
-  font-size: 27rpx;
-  font-weight: 500;
+  border-radius: $radius-pill;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
 }
 
 .act-btn.pass {
-  background: #e8f8f0;
-  color: #2ba58c;
-  margin-right: 16rpx;
+  margin-right: $gap-sm;
+  color: #fff;
+  background: $brand;
+  box-shadow: $shadow-brand;
 }
 
 .act-btn.reject {
-  background: #fdecec;
-  color: #e64340;
+  color: $danger;
+  background: $surface;
+  border: 2rpx solid $line;
 }
 
 /* ---------------- 加载更多 ---------------- */
 .load-tip {
-  text-align: center;
-  font-size: 24rpx;
-  color: #999;
   padding: 24rpx 0;
+  text-align: center;
+  font-size: $fs-cap;
+  color: $gray6;
 }
 
 .load-tip.no-more {
-  color: #ccc;
+  color: $gray4;
 }
 </style>
