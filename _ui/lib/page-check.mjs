@@ -96,14 +96,25 @@ export function checkCompile(root, page, c) {
 }
 
 export function checkStyle(root, page, c) {
-  console.log('\n[样式] scss 编译（模拟 uni.scss 注入 tokens.scss）')
+  console.log('\n[样式] scss 编译（模拟 uni-app：注入 tokens.scss + 支持 @ 别名）')
   if (!page.styleBlock) {
     c.ok('样式块是 scss（这样才能用设计令牌）', false, '当前不是 lang="scss"')
     return ''
   }
   const tokens = readFileSync(join(root, 'common/tokens.scss'), 'utf8')
   try {
-    const out = sass.compileString(tokens + '\n' + page.styleBlock.content, { style: 'expanded' })
+    const out = sass.compileString(tokens + '\n' + page.styleBlock.content, {
+      style: 'expanded',
+      // uni-app 走 Vite，会把 `@/xxx` 解析到项目根；裸 sass 不认识这个前缀，
+      // 页面里显式写的 `@import '@/common/tokens.scss'` 会报 "Can't find stylesheet"。
+      // 这里补上同样的解析规则，避免把「环境不支持别名」误报成「代码有问题」。
+      importers: [{
+        findFileUrl(url) {
+          if (!url.startsWith('@/')) return null
+          return new URL('file://' + join(root, url.slice(2)).replace(/\\/g, '/'))
+        }
+      }]
+    })
     c.ok('scss 编译通过（令牌名都真实存在）', out.css.length > 0)
     c.ok('scss 里 $brand 已解析', out.css.includes('#ff5a36'))
     c.ok('scss 里 $canvas 已解析', out.css.includes('#f7f6f3'))

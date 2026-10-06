@@ -597,11 +597,12 @@ async function wxLogin() {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>@import '@/common/tokens.scss';
+
 .login-page {
   min-height: 100vh;
   padding: 60rpx 40rpx 40rpx;
-  background: linear-gradient(180deg, #fff3ed 0%, #f5f5f5 340rpx);
+  background: linear-gradient(180deg, $brand-soft 0%, $canvas 340rpx);
   box-sizing: border-box;
 }
 
@@ -617,7 +618,7 @@ async function wxLogin() {
   width: 150rpx;
   height: 150rpx;
   border-radius: 40rpx;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
+  background: linear-gradient(135deg, $brand-soft, $brand-line);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -628,13 +629,13 @@ async function wxLogin() {
 .brand-name {
   font-size: 46rpx;
   font-weight: bold;
-  color: #333;
+  color: $ink;
   margin-top: 24rpx;
 }
 
 .brand-slogan {
   font-size: 25rpx;
-  color: #999;
+  color: $gray6;
   margin-top: 10rpx;
 }
 
@@ -650,13 +651,13 @@ async function wxLogin() {
 .card-label {
   display: block;
   font-size: 27rpx;
-  color: #333;
+  color: $ink;
   font-weight: 500;
   margin-bottom: 18rpx;
 }
 
 .required {
-  color: #ff4d4f;
+  color: $danger;
   font-size: 26rpx;
 }
 
@@ -668,23 +669,23 @@ async function wxLogin() {
 .input {
   width: 100%;
   height: 84rpx;
-  background: #f8f8f8;
+  background: $surface-sunken;
   border-radius: 16rpx;
   padding: 0 24rpx;
   font-size: 28rpx;
-  color: #333;
+  color: $ink;
   box-sizing: border-box;
 }
 
 .ph {
-  color: #bbb;
+  color: $gray4;
   font-size: 26rpx;
 }
 
 .hint {
   display: block;
   font-size: 21rpx;
-  color: #aaa;
+  color: $gray4;
   margin-top: 14rpx;
   line-height: 1.5;
 }
@@ -702,8 +703,8 @@ async function wxLogin() {
   padding: 0;
   margin: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
-  border: 4rpx solid #ffd9cc;
+  background: linear-gradient(135deg, $brand-soft, $brand-line);
+  border: 4rpx solid $brand-line;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -728,7 +729,7 @@ async function wxLogin() {
 .avatar-or {
   display: block;
   font-size: 21rpx;
-  color: #aaa;
+  color: $gray4;
   margin: 20rpx 0 14rpx;
 }
 
@@ -742,7 +743,7 @@ async function wxLogin() {
   width: 88rpx;
   height: 88rpx;
   border-radius: 24rpx;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
+  background: linear-gradient(135deg, $brand-soft, $brand-line);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -752,7 +753,7 @@ async function wxLogin() {
 }
 
 .avatar-item.active {
-  border-color: #ff6b35;
+  border-color: $brand;
   box-shadow: 0 4rpx 14rpx rgba(255, 107, 53, 0.3);
 }
 
@@ -765,32 +766,32 @@ async function wxLogin() {
 .role-chip {
   flex: 1;
   border-radius: 18rpx;
-  border: 2rpx solid #eee;
+  border: 2rpx solid $line;
   padding: 20rpx 16rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #fafafa;
+  background: $surface-sunken;
 }
 
 .role-chip.active {
-  border-color: #ff6b35;
-  background: #fff3ed;
+  border-color: $brand;
+  background: $brand-soft;
 }
 
 .role-name {
   font-size: 28rpx;
-  color: #333;
+  color: $ink;
   font-weight: 500;
 }
 
 .role-chip.active .role-name {
-  color: #ff6b35;
+  color: $brand;
 }
 
 .role-desc {
   font-size: 20rpx;
-  color: #aaa;
+  color: $gray4;
   margin-top: 8rpx;
 }
 
@@ -800,7 +801,7 @@ async function wxLogin() {
   height: 92rpx;
   line-height: 92rpx;
   border-radius: 46rpx;
-  background: linear-gradient(135deg, #ff8c5a, #ff6b35);
+  background: linear-gradient(135deg, $brand-dark, $brand);
   color: #fff;
   font-size: 31rpx;
   font-weight: 500;
@@ -810,7 +811,7 @@ async function wxLogin() {
 
 .submit-btn[disabled],
 .submit-btn.is-disabled {
-  background: #ffc7ae;
+  background: $brand-line;
   color: #fff;
   box-shadow: none;
 }
@@ -820,12 +821,12 @@ async function wxLogin() {
   height: 88rpx;
   border-radius: 44rpx;
   background: #fff;
-  border: 2rpx solid #e8e8e8;
+  border: 2rpx solid $line;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
-  color: #333;
+  color: $ink;
 }
 
 .wechat-btn.disabled {
@@ -840,7 +841,7 @@ async function wxLogin() {
 .footer {
   display: block;
   font-size: 21rpx;
-  color: #bbb;
+  color: $gray4;
   text-align: center;
   line-height: 1.7;
   margin-top: 50rpx;

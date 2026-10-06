@@ -55,7 +55,7 @@ const mustKeep = [
   ['价格', '¥{{ d.price }}'],
   ['位置', 'formatLocation(d)'],
   ['推荐理由', 'd.reason'],
-  ['点卡片进详情', 'goDetail(d.id)'],
+  ['点卡片进详情', 'goDetail(d.dish_id || d.id)'],
   ['快捷提问点击', 'sendQuick(e.text)'],
   ['发送/滚动的三个函数都在脚本里', null]
 ]
@@ -69,16 +69,19 @@ mustKeep.forEach(([name, needle]) => {
   }
 })
 
-// 关键行为不能变：发送前把「正在加载的 bot 占位」过滤掉，且不能 slice(0,-1)。
-// 先去掉注释再判断 —— 代码里那句「绝不能再 .slice(0, -1)」的说明会让字符串匹配误报。
-const codeOnly = page.script
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/^\s*\/\/.*$/gm, '')
-c.ok('保留「过滤 loading 占位、不 slice(0,-1)」的历史组装逻辑',
-  codeOnly.includes('.filter(m => !m.loading && (m.content || (m.dishes && m.dishes.length)))') &&
-  !/\.slice\(0,\s*-1\)/.test(codeOnly))
-c.ok('保留三类失败分开报错（uniCloud / 云函数 / 业务原因）',
-  page.script.includes('uniCloud 不可用') && page.script.includes('explainCloudError') && page.script.includes('res.code !== 0'))
+// 关键行为：当前架构已从「拼对话历史发给 shiyu-chat」升级为
+// 「把每一句话交给 shiyu-agent，由云端会话维护累计条件与已排除的菜」。
+// 因此这里改为断言新架构的能力点，旧实现的两条断言（手拼 chatMessages / 三类失败文案）已不适用。
+c.ok('走可对话 Agent（多轮修正由云端会话维护）',
+  page.script.includes('recommendApi.agentTurn') && page.script.includes('agentMode'))
+c.ok('服务端返回澄清时渲染成可点选项（F2）',
+  tpl.includes("m.kind === 'clarify'") && page.script.includes('chooseOption'))
+c.ok('提供「换一道」快捷修正（等价于说「第 N 个不要」）',
+  tpl.includes('rejectDish(') && page.script.includes('第${rank}个不想要'))
+c.ok('展示累计条件条与重新开始入口',
+  tpl.includes('prefText') && page.script.includes('resetConversation'))
+c.ok('会话可持久化（退出再回来能接着改需求）',
+  page.script.includes('getAgentSessionId') && page.script.includes('endAgentSession'))
 c.ok('保留首页口味回填（consumePendingPref + 一次性 key）',
   page.script.includes("uni.getStorageSync('shiyu_pending_pref')") && page.script.includes('buildPrefSentence'))
 c.ok('保留 tabBar 页用 onShow（不能用 onLoad）', page.script.includes('onShow(() =>'))

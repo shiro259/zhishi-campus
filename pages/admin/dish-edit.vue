@@ -686,18 +686,19 @@ onLoad(async (options) => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .edit-page {
   padding: 24rpx;
   padding-bottom: 80rpx;
-  background: #f5f5f5;
+  background: $canvas;
   min-height: 100vh;
   box-sizing: border-box;
 }
 
 /* ---------------- 顶部 ---------------- */
 .hero {
-  background: linear-gradient(135deg, #333333, #4d4d4d);
+  background: linear-gradient(135deg, $ink, $gray7);
   border-radius: 24rpx;
   padding: 30rpx;
   margin-bottom: 20rpx;
@@ -733,7 +734,7 @@ onLoad(async (options) => {
 
 .state-text {
   font-size: 26rpx;
-  color: #999;
+  color: $gray6;
   margin-top: 18rpx;
   text-align: center;
   line-height: 1.6;
@@ -742,7 +743,7 @@ onLoad(async (options) => {
 .retry-btn {
   margin-top: 30rpx;
   padding: 16rpx 48rpx;
-  background: #ff6b35;
+  background: $brand;
   color: #fff;
   border-radius: 40rpx;
   font-size: 26rpx;
@@ -767,23 +768,23 @@ onLoad(async (options) => {
 .field-label {
   display: block;
   font-size: 27rpx;
-  color: #333;
+  color: $ink;
   font-weight: 500;
   margin-bottom: 16rpx;
 }
 
 .req {
-  color: #ff4d4f;
+  color: $danger;
 }
 
 .input {
   width: 100%;
   height: 80rpx;
-  background: #f8f8f8;
+  background: $surface-sunken;
   border-radius: 14rpx;
   padding: 0 20rpx;
   font-size: 27rpx;
-  color: #333;
+  color: $ink;
   box-sizing: border-box;
 }
 
@@ -792,13 +793,13 @@ onLoad(async (options) => {
 }
 
 .ph {
-  color: #bbb;
+  color: $gray4;
   font-size: 26rpx;
 }
 
 .picker-value {
   height: 80rpx;
-  background: #f8f8f8;
+  background: $surface-sunken;
   border-radius: 14rpx;
   display: flex;
   align-items: center;
@@ -808,18 +809,18 @@ onLoad(async (options) => {
 
 .picker-text {
   font-size: 27rpx;
-  color: #333;
+  color: $ink;
 }
 
 .picker-arrow {
   font-size: 22rpx;
-  color: #999;
+  color: $gray6;
 }
 
 .hint {
   display: block;
   font-size: 21rpx;
-  color: #aaa;
+  color: $gray4;
   margin-top: 12rpx;
   line-height: 1.6;
 }
@@ -838,22 +839,22 @@ onLoad(async (options) => {
 
 .chip {
   padding: 12rpx 26rpx;
-  background: #f5f5f5;
+  background: $canvas;
   border-radius: 26rpx;
   font-size: 25rpx;
-  color: #666;
+  color: $gray7;
   border: 2rpx solid transparent;
 }
 
 .chip.warn {
-  color: #a86b00;
-  background: #fffbe6;
+  color: $warning;
+  background: $warning-soft;
 }
 
 .chip.active {
-  background: #fff3ed;
-  color: #ff6b35;
-  border-color: #ff6b35;
+  background: $brand-soft;
+  color: $brand;
+  border-color: $brand;
   font-weight: 500;
 }
 
@@ -878,14 +879,14 @@ onLoad(async (options) => {
 .img-btn {
   padding: 14rpx 24rpx;
   border-radius: 12rpx;
-  border: 2rpx solid #ff6b35;
+  border: 2rpx solid $brand;
   font-size: 26rpx;
-  color: #ff6b35;
+  color: $brand;
   text-align: center;
 }
 
 .img-btn-main {
-  background: #ff6b35;
+  background: $brand;
   color: #fff;
   flex: 1;
 }
@@ -909,7 +910,7 @@ onLoad(async (options) => {
   width: 88rpx;
   height: 88rpx;
   border-radius: 22rpx;
-  background: linear-gradient(135deg, #fff3ed, #ffe4d6);
+  background: linear-gradient(135deg, $brand-soft, $brand-line);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -919,7 +920,7 @@ onLoad(async (options) => {
 }
 
 .emoji-item.active {
-  border-color: #ff6b35;
+  border-color: $brand;
   box-shadow: 0 4rpx 14rpx rgba(255, 107, 53, 0.3);
 }
 
@@ -927,11 +928,11 @@ onLoad(async (options) => {
 .textarea {
   width: 100%;
   height: 170rpx;
-  background: #f8f8f8;
+  background: $surface-sunken;
   border-radius: 14rpx;
   padding: 18rpx 20rpx;
   font-size: 27rpx;
-  color: #333;
+  color: $ink;
   box-sizing: border-box;
 }
 
@@ -941,7 +942,7 @@ onLoad(async (options) => {
   height: 92rpx;
   line-height: 92rpx;
   border-radius: 46rpx;
-  background: linear-gradient(135deg, #ff8c5a, #ff6b35);
+  background: linear-gradient(135deg, $brand-dark, $brand);
   color: #fff;
   font-size: 30rpx;
   font-weight: 500;
@@ -951,7 +952,7 @@ onLoad(async (options) => {
 
 .save-btn[disabled],
 .save-btn.is-disabled {
-  background: #ffc7ae;
+  background: $brand-line;
   box-shadow: none;
 }
 </style>

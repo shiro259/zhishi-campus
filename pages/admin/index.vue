@@ -234,11 +234,12 @@ function errorMessage(e, fallback) {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>@import '@/common/tokens.scss';
+
 .admin-index {
   min-height: 100vh;
   padding: 30rpx;
-  background: #f5f5f5;
+  background: $canvas;
   box-sizing: border-box;
 }
 
@@ -250,7 +251,7 @@ function errorMessage(e, fallback) {
   padding: 40rpx;
   margin-bottom: 24rpx;
   border-radius: 20rpx;
-  background: linear-gradient(135deg, #333333, #4d4d4d);
+  background: linear-gradient(135deg, $ink, $gray7);
 }
 
 .welcome-title {
@@ -277,7 +278,7 @@ function errorMessage(e, fallback) {
   align-items: center;
   padding: 24rpx 28rpx;
   margin-bottom: 24rpx;
-  background: #FFF0EB;
+  background: $brand-soft;
   border-radius: 16rpx;
 }
 
@@ -289,12 +290,12 @@ function errorMessage(e, fallback) {
 .notice-text {
   flex: 1;
   font-size: 26rpx;
-  color: #FF6B35;
+  color: $brand;
 }
 
 .notice-arrow {
   font-size: 34rpx;
-  color: #FF6B35;
+  color: $brand;
 }
 
 /* 宫格 */
@@ -310,7 +311,7 @@ function errorMessage(e, fallback) {
   box-sizing: border-box;
   padding: 36rpx 24rpx;
   border-radius: 20rpx;
-  background: #333333;
+  background: $ink;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -321,7 +322,7 @@ function errorMessage(e, fallback) {
 }
 
 .menu-item.danger {
-  background: #3a2a2a;
+  background: $ink;
 }
 
 .menu-icon {
@@ -352,7 +353,7 @@ function errorMessage(e, fallback) {
   padding: 0 10rpx;
   box-sizing: border-box;
   border-radius: 18rpx;
-  background: #FF6B35;
+  background: $brand;
   color: #fff;
   font-size: 22rpx;
   line-height: 36rpx;
@@ -360,7 +361,7 @@ function errorMessage(e, fallback) {
 }
 
 .menu-item.danger .menu-label {
-  color: #FF8A80;
+  color: $danger;
 }
 
 /* 同步结果 */
@@ -370,7 +371,7 @@ function errorMessage(e, fallback) {
   background: #fff;
   border-radius: 16rpx;
   font-size: 24rpx;
-  color: #666;
+  color: $gray7;
 }
 
 /* 说明 */
@@ -385,14 +386,14 @@ function errorMessage(e, fallback) {
   display: block;
   font-size: 28rpx;
   font-weight: bold;
-  color: #333;
+  color: $ink;
   margin-bottom: 16rpx;
 }
 
 .tip-line {
   display: block;
   font-size: 24rpx;
-  color: #888;
+  color: $gray6;
   line-height: 1.9;
 }
 
@@ -415,18 +416,18 @@ function errorMessage(e, fallback) {
   flex: 1;
   font-size: 30rpx;
   font-weight: 500;
-  color: #333;
+  color: $ink;
 }
 
 .front-entry-arrow {
   font-size: 36rpx;
-  color: #bbb;
+  color: $gray4;
 }
 
 .logout {
   margin: 40rpx 0 30rpx;
   text-align: center;
   font-size: 28rpx;
-  color: #FF4D4F;
+  color: $danger;
 }
 </style>

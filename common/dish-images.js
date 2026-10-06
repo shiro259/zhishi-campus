@@ -11,7 +11,7 @@
  */
 
 /** 生成时间 */
-export const DISH_IMAGES_GENERATED_AT = '2026-10-06 10:53:22'
+export const DISH_IMAGES_GENERATED_AT = '2026-10-06 13:20:12'
 
 /** 实际存在的菜品图片文件名（相对于 static/dishes/），例如 ['d001.jpg'] */
 export const DISH_IMAGE_FILES = []

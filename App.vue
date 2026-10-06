@@ -12,14 +12,15 @@
   }
 </script>
 
-<style>
+<style lang="scss">@import '@/common/tokens.scss';
+
   /* 全局样式 */
   /*   */
   view {
     box-sizing: border-box;
   }
   page {
-    background-color: #f5f5f5;
+    background-color: $canvas;
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   }
 </style>

@@ -77,9 +77,9 @@
       <view
         class="msg-item"
         :class="m.role === 'user' ? 'msg-user' : 'msg-bot'"
-        v-for="(m, i) in messages"
-        :key="i"
-        :id="'msg-' + i"
+        v-for="(m, msgIndex) in messages"
+        :key="msgIndex"
+        :id="'msg-' + msgIndex"
       >
         <view class="avatar-wrap">
           <AiMascot v-if="m.role !== 'user'" :size="68" />
@@ -93,11 +93,12 @@
           <view v-if="m.dishes && m.dishes.length" class="dish-cards">
             <view
               class="dish-card"
-              v-for="d in m.dishes"
-              :key="d.id"
-              @click="goDetail(d.id)"
+              v-for="(d, di) in m.dishes"
+              @click="goDetail(d.dish_id || d.id)"
+              :key="d.dish_id || d.id || di"
             >
               <view class="dish-card-head">
+                <text class="dish-rank">{{ di + 1 }}</text>
                 <text class="dish-card-name">{{ d.name }}</text>
                 <text class="dish-card-price">¥{{ d.price }}</text>
               </view>
@@ -113,10 +114,43 @@
                 </view>
               </view>
               <text class="dish-card-reason" v-if="d.reason">{{ d.reason }}</text>
+
+              <!-- 不满意就换：等价于对 AI 说「第 N 个不要」，但不用用户自己数 -->
+              <view class="dish-card-actions" v-if="!sending">
+                <view class="dish-act" @click.stop="goDetail(d.dish_id || d.id)">
+                  <text class="dish-act-text">看详情</text>
+                </view>
+                <view class="dish-act" @click.stop="rejectDish(msgIndex, di + 1, d.name)">
+                  <Icon name="refresh" :size="24" color="#8a8580" />
+                  <text class="dish-act-text">换一道</text>
+                </view>
+              </view>
             </view>
           </view>
+
+          <!-- 澄清选项（AI 发现需求自相矛盾时给出可点选项） -->
+          <view class="clarify" v-if="m.kind === 'clarify'">
+            <text class="clarify-detail" v-if="m.detail">{{ m.detail }}</text>
+            <view class="clarify-options">
+              <view
+                class="clarify-opt"
+                v-for="(o, oi) in m.options"
+                :key="oi"
+                @click="chooseOption(msgIndex, o)"
+              >
+                <text class="clarify-opt-text">{{ o.label }}</text>
+              </view>
+            </view>
+            <text class="clarify-hint">也可以直接打字告诉我</text>
+          </view>
+
           <!-- 文字内容 -->
-          <text class="bubble-text" v-if="m.content">{{ m.content }}</text>
+          <text class="bubble-text" v-if="m.content && m.kind !== 'clarify'">{{ m.content }}</text>
+          <text class="bubble-text bubble-text-question" v-if="m.content && m.kind === 'clarify'">{{ m.content }}</text>
+
+          <!-- 降级说明（云函数未部署 / 大模型不可用） -->
+          <text class="bubble-notice" v-if="m.notice">{{ m.notice }}</text>
+
           <!-- 加载中 -->
           <view class="typing" v-if="m.loading">
             <text class="typing-dot" v-for="i in 3" :key="i" :style="{ animationDelay: i * 0.2 + 's' }" />
@@ -127,6 +161,16 @@
       <!-- 底部留白 -->
       <view class="msg-bottom" />
     </scroll-view>
+
+    <!-- ==================== 累计条件条 ==================== -->
+    <view class="pref-bar" v-if="prefText || excludedCount">
+      <view class="pref-main">
+        <Icon name="filter" :size="24" color="#ff5a36" />
+        <text class="pref-text">{{ prefText || '未设置条件' }}</text>
+        <text class="pref-excluded" v-if="excludedCount">已排除 {{ excludedCount }} 道</text>
+      </view>
+      <text class="pref-reset" @click="resetConversation">重新开始</text>
+    </view>
 
     <!-- ==================== 输入栏（悬浮圆角） ==================== -->
     <view class="input-bar">
@@ -163,7 +207,7 @@
  */
 import { ref, computed, nextTick } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { buildPrefSentence, explainCloudError, dishApi } from '@/api/index.js'
+import { buildPrefSentence, explainCloudError, dishApi, recommendApi } from '@/api/index.js'
 import { formatLocation } from '@/common/utils.js'
 import DishImage from '@/components/DishImage/DishImage.vue'
 import Icon from '@/components/Icon/Icon.vue'
@@ -175,6 +219,14 @@ const sending = ref(false)
 const scrollId = ref('msg-welcome')
 /** 今日推荐（欢迎区里的预览模块） */
 const todayPicks = ref([])
+
+/**
+ * 当前会话累计生效的条件（由云函数 shiyu-agent 回传）
+ * 用途：一是让用户随时看清"我现在在按什么条件推荐"，二是提供"清空重来"的出口
+ */
+const activePref = ref(null)
+/** 被用户否掉的菜品数量，用来提示条件已经收紧到什么程度 */
+const excludedCount = ref(0)
 
 const quickQuestions = [
   '想吃辣的，10块以内',
@@ -262,67 +314,13 @@ async function send() {
   scrollToBottom()
 
   try {
-    // 组装对话历史（发给后端的 messages 不含 system，后端自己加）
-    // 注意：下面的 filter 已经用 !m.loading 把「正在加载的 bot 占位消息」排除了，
-    // 所以这里绝不能再 .slice(0, -1)。否则会把刚 push 进去的那条用户提问也一起丢掉，
-    // 导致首轮提问发送空数组、后续每轮都慢一拍。
-    const chatMessages = []
-    const recent = messages.value
-      .filter(m => !m.loading && (m.content || (m.dishes && m.dishes.length)))
-    for (const m of recent) {
-      if (m.role === 'user') {
-        chatMessages.push({ role: 'user', content: m.content })
-      } else {
-        chatMessages.push({ role: 'assistant', content: m.content || '' })
-      }
-    }
-
-    // 调用云函数 shiyu-chat
-    //
-    // 这里刻意把三类失败分开报出来：以前无论什么原因都只显示一句笼统的
-    // 「AI服务暂时不可用」，导致无法判断到底是云空间没关联、云函数没上传，
-    // 还是 Key / base_url / 模型配置有问题。
-    if (typeof uniCloud === 'undefined' || !uniCloud || !uniCloud.callFunction) {
-      throw new Error(
-        'uniCloud 不可用：本项目还没关联云服务空间。\n' +
-        '请在 HBuilderX 中右键 uniCloud-aliyun → 关联云服务空间（阿里云），然后重新运行。'
-      )
-    }
-
-    const res = await new Promise((resolve, reject) => {
-      uniCloud.callFunction({
-        name: 'shiyu-chat',
-        data: { messages: chatMessages },
-        success: (r) => resolve(r.result),
-        fail: (err) => {
-          const detail = (err && (err.errMsg || err.message)) || '未知错误'
-          // 交给 explainCloudError 翻译：真机上最常见的是域名白名单，
-          // 只丢一句 request:fail 用户根本无从下手
-          reject(new Error('云函数 shiyu-chat 调用失败：' + explainCloudError(detail)))
-        }
-      })
-    })
-
-    if (!res) {
-      throw new Error('云函数 shiyu-chat 没有返回内容，可能还没上传部署。')
-    }
-    if (res.code !== 0 || !res.data) {
-      // 云函数自己给出的业务原因（未配 Key / Key 无效 / base_url 写错等）原样透出
-      throw new Error(res.message || '云函数返回异常（未返回 code/data）')
-    }
-
-    const idx = messages.value.length - 1
-    messages.value[idx] = {
-      role: 'bot',
-      content: res.data.content || '',
-      dishes: res.data.dishes || [],
-      loading: false
-    }
+    await sendToAgent(text)
   } catch (e) {
     const idx = messages.value.length - 1
     messages.value[idx] = {
       role: 'bot',
-      content: 'AI 服务调用失败：\n\n' + ((e && e.message) || '未知错误'),
+      kind: 'error',
+      content: '推荐失败：\n\n' + ((e && e.message) || '未知错误'),
       dishes: [],
       loading: false
     }
@@ -331,6 +329,173 @@ async function send() {
     scrollToBottom()
   }
 }
+
+/**
+ * 走「可对话推荐 Agent」：把这句话交给 shiyu-agent
+ *
+ * 与逐条拼对话历史的老实现相比，这里把状态放到云端会话里：
+ *   · 云函数记住已累积的条件与已排除的菜品，因此「第一个太油了」能精准作用到某道菜；
+ *   · 云函数检测到需求矛盾时返回 type='clarify'，页面渲染成可点选项，而不是硬猜。
+ * 云函数未部署时会自动降级为单轮推荐（api 层兜底），页面用 notice 说明差异。
+ */
+async function sendToAgent(text) {
+  const data = await recommendApi.agentTurn({ text })
+  const idx = messages.value.length - 1
+
+  // 记住累计条件，用于顶部条件条与"被否掉 N 道"的提示
+  if (data.prefSnapshot) activePref.value = data.prefSnapshot
+  if (typeof data.excludedCount === 'number') excludedCount.value = data.excludedCount
+
+  // ---------- 情况一：AI 先澄清（F2） ----------
+  if (data.type === 'clarify') {
+    messages.value[idx] = {
+      role: 'bot',
+      kind: 'clarify',
+      content: data.question,
+      detail: data.detail || '',
+      options: (data.options || []).map((o) => ({ label: o.label, apply: o.apply || {} })),
+      dishes: [],
+      loading: false
+    }
+    return
+  }
+
+  // ---------- 情况二：正常推荐 ----------
+  const rows = data.recommendations || []
+  messages.value[idx] = {
+    role: 'bot',
+    kind: 'recommend',
+    content: data.summary || '',
+    dishes: rows,
+    notice: data.notice || '',
+    engine: data.engine || '',
+    loading: false
+  }
+}
+
+/**
+ * 用户点了澄清选项
+ * 把该选项的 apply 内容回传给云函数（相当于用户替我们把条件定下来），然后继续推荐。
+ */
+async function chooseOption(msgIndex, option) {
+  if (sending.value) return
+
+  messages.value.push({ role: 'user', content: option.label })
+  messages.value.push({ role: 'bot', content: '', loading: true, dishes: [] })
+  sending.value = true
+  scrollToBottom()
+
+  try {
+    const data = await recommendApi.agentTurn({
+      text: option.label,
+      applyOption: option.apply || {},
+      skipClarify: true
+    })
+    const idx = messages.value.length - 1
+    if (data.prefSnapshot) activePref.value = data.prefSnapshot
+    if (typeof data.excludedCount === 'number') excludedCount.value = data.excludedCount
+
+    messages.value[idx] = {
+      role: 'bot',
+      kind: 'recommend',
+      content: data.summary || '',
+      dishes: data.recommendations || [],
+      notice: data.notice || '',
+      engine: data.engine || '',
+      loading: false
+    }
+  } catch (e) {
+    const idx = messages.value.length - 1
+    messages.value[idx] = {
+      role: 'bot',
+      kind: 'error',
+      content: '推荐失败：\n\n' + ((e && e.message) || '未知错误'),
+      dishes: [],
+      loading: false
+    }
+  } finally {
+    sending.value = false
+    scrollToBottom()
+  }
+}
+
+/**
+ * 对某条推荐里的某道菜表达不满意 —— 「就这道不要」快捷操作
+ * 等价于对 AI 说「第 N 个太油了」，但不需要用户自己数序号
+ * @param {number} msgIndex 消息下标
+ * @param {number} rank 该菜在这批推荐里的名次（从 1 开始）
+ * @param {string} name 菜名，用于回显
+ */
+async function rejectDish(msgIndex, rank, name) {
+  if (sending.value) return
+
+  messages.value.push({ role: 'user', content: `不要「${name}」，换一个` })
+  messages.value.push({ role: 'bot', content: '', loading: true, dishes: [] })
+  sending.value = true
+  scrollToBottom()
+
+  try {
+    // 交给云函数解析"第 N 个"：会话里记着上一轮推荐顺序，能精准排除
+    const data = await recommendApi.agentTurn({ text: `第${rank}个不想要，换一道`, skipClarify: true })
+    const idx = messages.value.length - 1
+    if (data.prefSnapshot) activePref.value = data.prefSnapshot
+    if (typeof data.excludedCount === 'number') excludedCount.value = data.excludedCount
+
+    messages.value[idx] = {
+      role: 'bot',
+      kind: 'recommend',
+      content: data.summary || '',
+      dishes: data.recommendations || [],
+      notice: data.notice || '',
+      engine: data.engine || '',
+      loading: false
+    }
+  } catch (e) {
+    const idx = messages.value.length - 1
+    messages.value[idx] = {
+      role: 'bot',
+      kind: 'error',
+      content: '推荐失败：\n\n' + ((e && e.message) || '未知错误'),
+      dishes: [],
+      loading: false
+    }
+  } finally {
+    sending.value = false
+    scrollToBottom()
+  }
+}
+
+/** 清空条件，开始一段新对话 */
+function resetConversation() {
+  uni.showModal({
+    title: '重新开始',
+    content: '会清空当前累积的口味、预算与忌口条件，确定吗？',
+    success: (res) => {
+      if (!res.confirm) return
+      recommendApi.endAgentSession()
+      messages.value = []
+      activePref.value = null
+      excludedCount.value = 0
+      scrollId.value = 'msg-welcome'
+      uni.showToast({ title: '已清空条件', icon: 'none' })
+    }
+  })
+}
+
+/** 条件条文案：把累计条件拼成一句话，让用户看得见 AI 记住了什么 */
+const prefText = computed(() => {
+  const p = activePref.value
+  if (!p) return ''
+  const parts = []
+  if (p.taste && p.taste.length) parts.push(p.taste.join('/'))
+  if (p.budget) parts.push(p.budget + ' 元内')
+  if (p.allergies && p.allergies.length) parts.push('忌 ' + p.allergies.join(''))
+  if (p.canteen) parts.push(p.canteen)
+  return parts.join(' · ')
+})
+
+/** 是否处于多轮对话模式（云函数没部署时 sessionId 为空） */
+const agentMode = computed(() => !!recommendApi.getAgentSessionId())
 
 /** 跳转菜品详情 */
 function goDetail(id) {
@@ -377,11 +542,12 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '@/common/tokens.scss';
 /**
  * 对话页样式
  *
  * 全部使用 common/tokens.scss 的设计令牌（uni.scss 已自动注入）。
- * 改造前这里写死了 #FF6B35 / #f0f0f0 / 20rpx，还有 emoji 当头像和图标，
+ * 改造前这里写死了 $brand / $surface-sunken / 20rpx，还有 emoji 当头像和图标，
  * 所以看着像「能跑的 demo」而不是能上线的产品。
  */
 
@@ -439,10 +605,10 @@ onShow(() => {
   /**
    * 渐变几乎竖直（168deg）并压深下半段：
    * 机器人形象在浅色区、白色标题落在深色区。
-   * 实测过第一版 150deg / #ff8f6b→#e8481f 时，标题压在偏亮的橙上只有 2.88:1，
+   * 实测过第一版 150deg / $brand→$brand-dark 时，标题压在偏亮的橙上只有 2.88:1，
    * 达不到大字号 3:1 的线；现在标题所在区域能到 4:1 以上。
    */
-  background: linear-gradient(168deg, #ff8f6b 0%, #f24e24 42%, #cf3d17 100%);
+  background: linear-gradient(168deg, $brand 0%, $brand-dark 42%, $brand-dark 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -486,7 +652,7 @@ onShow(() => {
 /**
  * 能力说明放在白色胶囊里
  *
- * 文字用 $ink 而不是品牌橙：实测 #ff5a36 压在白色上对比度只有 3.09:1，
+ * 文字用 $ink 而不是品牌橙：实测 $brand 压在白色上对比度只有 3.09:1，
  * 12pt 的小字达不到 WCAG AA 的 4.5:1（橙色只保留在左侧的 sparkle 图标上，
  * 品牌感靠英雄区的橙色渐变承担）。
  */
@@ -651,7 +817,7 @@ onShow(() => {
 }
 
 .user-bubble {
-  background: linear-gradient(135deg, $brand 0%, #ff8055 100%);
+  background: linear-gradient(135deg, $brand 0%, $brand 100%);
   border-top-right-radius: $radius-sm;
   margin-right: 18rpx;
   box-shadow: 0 8rpx 22rpx rgba(255, 90, 54, 0.26);
@@ -781,6 +947,145 @@ onShow(() => {
   border-top: 1rpx solid $line;
 }
 
+/* ==================== 序号角标（方便用户对照"第几个"） ==================== */
+
+.dish-rank {
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: $brand-soft;
+  color: $brand;
+  font-size: $fs-tag;
+  font-weight: $fw-bold;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+/* ==================== 菜品卡片操作（换一道） ==================== */
+
+.dish-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid $line;
+}
+
+.dish-act {
+  display: flex;
+  align-items: center;
+  height: 52rpx;
+  padding: 0 22rpx;
+  margin-left: 14rpx;
+  border: 2rpx solid $line;
+  border-radius: $radius-pill;
+}
+
+.dish-act-text {
+  margin-left: 6rpx;
+  font-size: $fs-tag;
+  color: $gray7;
+}
+
+/* ==================== 澄清卡片（F2：矛盾需求） ==================== */
+
+.clarify {
+  margin-top: 8rpx;
+}
+
+.clarify-detail {
+  display: block;
+  font-size: $fs-cap;
+  color: $gray6;
+  line-height: 1.6;
+}
+
+.clarify-options {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.clarify-opt {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 26rpx;
+  margin: 0 14rpx 14rpx 0;
+  background: $brand-soft;
+  border: 2rpx solid $brand-line;
+  border-radius: $radius-pill;
+}
+
+.clarify-opt-text {
+  font-size: $fs-sub;
+  color: $brand;
+  font-weight: $fw-medium;
+}
+
+.clarify-hint {
+  display: block;
+  margin-top: 4rpx;
+  font-size: $fs-tag;
+  color: $gray4;
+}
+
+.bubble-text-question {
+  font-weight: $fw-medium;
+  color: $ink;
+}
+
+.bubble-notice {
+  display: block;
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx dashed $line;
+  font-size: $fs-tag;
+  color: $warning;
+  line-height: 1.5;
+}
+
+/* ==================== 累计条件条 ==================== */
+
+.pref-bar {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 24rpx;
+  background: $surface;
+  border-top: 1rpx solid $line;
+}
+
+.pref-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pref-text {
+  margin-left: 10rpx;
+  font-size: $fs-cap;
+  color: $gray7;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pref-excluded {
+  margin-left: 14rpx;
+  font-size: $fs-tag;
+  color: $gray4;
+  flex-shrink: 0;
+}
+
+.pref-reset {
+  margin-left: 20rpx;
+  font-size: $fs-cap;
+  color: $gray6;
+  flex-shrink: 0;
+}
+
 /* ==================== 输入栏（悬浮圆角） ==================== */
 
 .input-bar {
@@ -821,7 +1126,7 @@ onShow(() => {
   width: 88rpx;
   height: 88rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, $brand 0%, #ff8a5c 100%);
+  background: linear-gradient(135deg, $brand 0%, $brand-dark 100%);
   box-shadow: 0 8rpx 20rpx rgba(255, 90, 54, 0.3);
   display: flex;
   align-items: center;
@@ -843,3 +1148,4 @@ onShow(() => {
   height: 24rpx;
 }
 </style>
+

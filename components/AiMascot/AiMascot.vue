@@ -93,6 +93,7 @@ const glowStyle = computed(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .mascot {
   position: relative;
   flex-shrink: 0;

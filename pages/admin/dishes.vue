@@ -541,7 +541,7 @@ onPullDownRefresh(() => {
   margin-top: $gap;
   padding: 20rpx $gap-card;
   background: $warning-soft;
-  border: 1rpx solid #f0dcb4;
+  border: 1rpx solid $warning-soft;
   border-radius: $radius-card;
 }
 
@@ -570,7 +570,7 @@ onPullDownRefresh(() => {
   height: $h-btn-sm;
   padding: 0 28rpx;
   border-radius: $radius-pill;
-  background: linear-gradient(135deg, $brand 0%, #ff8a5c 100%);
+  background: linear-gradient(135deg, $brand 0%, $brand-dark 100%);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -165,6 +165,7 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '@/common/tokens.scss';
 .fav-page {
   min-height: 100vh;
   background: $canvas;
@@ -179,7 +180,7 @@ onShow(() => {
   margin: 20rpx 24rpx 0;
   padding: 32rpx;
   border-radius: $radius-lg;
-  background: linear-gradient(168deg, #c23a15 0%, #cf3f19 68%, #ff7a4d 100%);
+  background: linear-gradient(168deg, $brand-dark 0%, $brand-dark 68%, $brand 100%);
   box-shadow: 0 12rpx 32rpx rgba(255, 90, 54, 0.2);
 }
 
@@ -232,7 +233,7 @@ onShow(() => {
 }
 
 .dish-card:active {
-  background: #fdfcfa;
+  background: $surface;
 }
 
 .dish-img-wrap {

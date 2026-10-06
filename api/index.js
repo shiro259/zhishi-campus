@@ -18,11 +18,16 @@ import {
   getLocalCategories
 } from '@/common/local-dishes.js'
 import { localRecommend, localParsePref } from '@/common/recommend-engine.js'
+import { planGroupMeal } from '@/common/group-meal.js'
 
 /** 云函数名 */
 const CLOUD_FN = {
   dish: 'shiyu-dish',
   recommend: 'shiyu-recommend',
+  /** 可对话推荐 Agent：多轮修正 + 矛盾澄清 */
+  agent: 'shiyu-agent',
+  /** 多人拼饭：几个人的约束取交集 + 点菜方案 */
+  group: 'shiyu-group',
   config: 'shiyu-config',
   seed: 'shiyu-seed',
   review: 'shiyu-review',
@@ -38,7 +43,11 @@ const STORAGE = {
   localReviews: 'shiyu_local_reviews',
   // 累计推荐次数。与 history 分开存：history 只留最近 20 条用于展示，
   // 拿它的长度当「推荐次数」会永远卡在 20。
-  recommendCount: 'shiyu_recommend_count'
+  recommendCount: 'shiyu_recommend_count',
+  // 对话推荐的会话标识：让用户中途退出再回来还能接着改需求
+  agentSession: 'shiyu_agent_session',
+  // 拼饭成员列表：下次进来直接复用，不用重新填一遍
+  groupMembers: 'shiyu_group_members'
 }
 
 /* ------------------------------ 云函数可用性探测 ------------------------------ */
@@ -56,6 +65,29 @@ let cloudAvailable = null
 
 /** 已知不存在 / 未上传部署的云函数（只按函数名记，不连累其它函数） */
 const missingFunctions = new Set()
+
+/**
+ * 当前对话推荐的会话标识
+ *
+ * 由云函数生成并回传，这里记住它，后续每一轮"修正"都带着它，
+ * 云函数才能找到该会话已累积的条件与已排除的菜品。
+ * 同时落盘一份，用户中途退出再回来还能接着改需求。
+ */
+let agentSessionId = (() => {
+  try {
+    return uni.getStorageSync(STORAGE.agentSession) || ''
+  } catch (e) {
+    return ''
+  }
+})()
+
+function saveAgentSessionId(id) {
+  try {
+    if (id) uni.setStorageSync(STORAGE.agentSession, id)
+  } catch (e) {
+    // 存储失败不影响本次对话
+  }
+}
 
 /**
  * 菜品列表数据源是否锁定为本地
@@ -685,6 +717,87 @@ function savePref(pref) {
 }
 
 export const recommendApi = {
+  /* ==================== 可对话推荐 Agent（多轮修正 + 矛盾澄清） ==================== */
+
+  /**
+   * 开始一段新的对话推荐
+   * @returns {Promise<Object>} 见 agentTurn
+   */
+  async agentStart() {
+    agentSessionId = ''
+    return { sessionId: '' }
+  },
+
+  /**
+   * 走一轮对话推荐
+   *
+   * 云函数 shiyu-agent 负责：解析用户这句话对当前条件的修正、累积约束、
+   * 检测矛盾需求并先澄清；本地兜底只做「把这句话解析成偏好后重新推荐」，
+   * 保证云函数没部署时页面依然可用（只是少了跨轮记忆）。
+   *
+   * @param {Object} opt
+   * @param {string} opt.text        用户这一轮说的话
+   * @param {Object} [opt.pref]      首轮的显式偏好（勾选表单）
+   * @param {Object} [opt.applyOption] 用户点了澄清选项时，该项的 apply 内容
+   * @param {boolean} [opt.skipClarify] 跳过澄清直接推荐
+   */
+  async agentTurn(opt = {}) {
+    const text = String(opt.text || '').trim()
+    const payload = {
+      sessionId: agentSessionId || '',
+      text,
+      pref: opt.pref || null,
+      applyOption: opt.applyOption || null,
+      skipClarify: opt.skipClarify === true
+    }
+
+    try {
+      const data = await callCloud(CLOUD_FN.agent, payload)
+      if (data && data.sessionId) {
+        agentSessionId = data.sessionId
+        saveAgentSessionId(agentSessionId)
+      }
+      return { engine: 'cloud', ...(data || {}) }
+    } catch (e) {
+      // ---- 本地兜底：没有多轮记忆，但至少能把这句话变成一次推荐 ----
+      const parsed = localParsePref(text)
+      const mergedPref = { ...(opt.pref || {}) }
+      if (parsed.taste.length) mergedPref.taste = parsed.taste
+      if (parsed.allergies.length) mergedPref.allergies = parsed.allergies
+      if (parsed.budget) mergedPref.budget = parsed.budget
+      if (parsed.meal_type) mergedPref.meal_type = parsed.meal_type
+      mergedPref.extra = text
+
+      const local = localRecommend(mergedPref, LOCAL_DISHES)
+      return {
+        engine: 'local',
+        type: 'recommend',
+        sessionId: '',
+        recommendations: local.recommendations,
+        summary: local.summary,
+        prefSnapshot: mergedPref,
+        notice: e.message
+          ? `多轮对话不可用（${e.message}），本次为单轮推荐；云端部署 shiyu-agent 后可连续改需求`
+          : '本次为单轮推荐'
+      }
+    }
+  },
+
+  /** 当前对话的 sessionId（空串表示还没开始） */
+  getAgentSessionId() {
+    return agentSessionId
+  },
+
+  /** 结束当前对话，下次重新开始 */
+  endAgentSession() {
+    agentSessionId = ''
+    try {
+      uni.removeStorageSync(STORAGE.agentSession)
+    } catch (e) {
+      // 忽略
+    }
+  },
+
   /**
    * AI 智能推荐
    * @param {Object} pref { meal_type, taste:[], allergies:[], budget, canteen, extra }
@@ -774,6 +887,79 @@ export const recommendApi = {
   /** 一句话解析（页面做实时预览用，纯本地零延迟） */
   parseText(text) {
     return localParsePref(text)
+  }
+}
+
+/* -------------------------------- 多人拼饭接口 -------------------------------- */
+
+export const groupApi = {
+  /**
+   * 算出拼饭方案
+   *
+   * 主链路走云函数 shiyu-group（菜品以云端菜单为准）；
+   * 云端不可用时用本机菜谱跑**同一个算法**（common/group-meal.js），
+   * 因此没联网也能用，只是菜单是本机那份。
+   *
+   * @param {Array} members [{name, taste:[], allergies:[], vegetarian?, noFried?}]
+   * @param {Object} [opt] { canteen, budgetPerPerson, maxItems }
+   * @returns {Promise<Object>} { shared, partial, combo, insights, summary, stats, engine }
+   */
+  async plan(members = [], opt = {}) {
+    const payload = {
+      members,
+      canteen: opt.canteen || '',
+      budgetPerPerson: Number(opt.budgetPerPerson) || 0,
+      maxItems: Number(opt.maxItems) || 5
+    }
+
+    try {
+      const data = await callCloud(CLOUD_FN.group, payload)
+      const result = { engine: 'cloud', ...(data || {}) }
+
+      // 与推荐/榜单同一口径：云端菜品库没初始化时，结果会是空的或不可信，
+      // 这时改用本机菜谱跑同一个算法，保证拼饭功能一定有结果
+      if (!result.stats || !result.stats.dishTotal) {
+        const local = planGroupMeal(members, LOCAL_DISHES, {
+          budgetPerPerson: payload.budgetPerPerson,
+          maxItems: payload.maxItems
+        })
+        return {
+          ...local,
+          engine: 'local',
+          notice: '云端菜品库尚未初始化，已改用本机菜谱计算'
+        }
+      }
+      return result
+    } catch (e) {
+      const local = planGroupMeal(members, LOCAL_DISHES, {
+        budgetPerPerson: payload.budgetPerPerson,
+        maxItems: payload.maxItems
+      })
+      return {
+        ...local,
+        engine: 'local',
+        notice: e.message ? `云端不可用（${e.message}），已改用本机菜谱计算` : '已改用本机菜谱计算'
+      }
+    }
+  },
+
+  /** 保存本次参与拼饭的人（下次进来直接复用，不用重新填） */
+  saveMembers(members) {
+    try {
+      uni.setStorageSync(STORAGE.groupMembers, Array.isArray(members) ? members.slice(0, 8) : [])
+    } catch (e) {
+      // 忽略
+    }
+  },
+
+  /** 读取上次保存的成员列表 */
+  getMembers() {
+    try {
+      const list = uni.getStorageSync(STORAGE.groupMembers)
+      return Array.isArray(list) ? list : []
+    } catch (e) {
+      return []
+    }
   }
 }
 

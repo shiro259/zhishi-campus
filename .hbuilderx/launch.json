@@ -2,6 +2,9 @@
     "version" : "1.0",
     "configurations" : [
         {
+            "app" : {
+                "launchtype" : "local"
+            },
             "default" : {
                 "launchtype" : "local"
             },
@@ -13,6 +16,10 @@
             },
             "provider" : "aliyun",
             "type" : "uniCloud"
+        },
+        {
+            "playground" : "standard",
+            "type" : "uni-app:app-android"
         }
     ]
 }

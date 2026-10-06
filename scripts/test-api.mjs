@@ -49,9 +49,27 @@ function check(name, cond, extra) {
 /* ------------------------------ 载入被测模块 ------------------------------ */
 
 // 断言层依赖 uni 全局，必须在设置 globalThis.uni 之后再 import
-const api = await load('api/index.js')
-const { dishApi, recommendApi, reviewApi, configApi, userApi } = api
+//
+// 注意：api/index.js 内部有模块级状态（cloudAvailable / dishListSource / missingFunctions），
+// 一旦在某个场景里被判定为"云空间不可用"就会锁死，同一模块实例无法恢复。
+// 因此每个场景都要**重新导入一个新实例**（加 ?case=N 绕过 ESM 模块缓存），
+// 否则后面的场景永远走不到云端分支 —— 这不是实现的问题，是测试污染。
+let api = await load('api/index.js')
+let { dishApi, recommendApi, reviewApi, configApi, userApi } = api
 const { LOCAL_DISHES } = await load('common/local-dishes.js')
+
+/** 重新载入 api 模块，拿到干净状态 */
+async function freshApi(tag) {
+  api = await import(
+    pathToFileURL(path.join(ROOT, 'api/index.js')).href + '?case=' + tag
+  )
+  dishApi = api.dishApi
+  recommendApi = api.recommendApi
+  reviewApi = api.reviewApi
+  configApi = api.configApi
+  userApi = api.userApi
+  return api
+}
 
 /* ==================== 场景 A：云空间不可用，全部降级 ==================== */
 
@@ -162,17 +180,56 @@ check('A31 统计降级可用', stats.dish_total === LOCAL_DISHES.length && stat
 
 console.log('--- 场景 B：uniCloud 可用（主链路）---')
 
+// 场景 A 已把模块状态锁成"云空间不可用"，这里换一个干净的模块实例
+await freshApi('B')
+
 cloudMode = 'ok'
 globalThis.uniCloud = {
   callFunction({ name, data, success }) {
     cloudCalls.push({ name, data })
     let result
     if (name === 'shiyu-dish') {
-      if (data.action === 'list') result = { code: 0, message: 'success', data: { list: [{ id: 'x1', name: '云端菜', price: 12 }], total: 1, hasMore: false } }
-      else if (data.action === 'canteens') result = { code: 0, message: 'success', data: ['云端食堂'] }
-      else result = { code: 0, message: 'success', data: [] }
+      if (data.action === 'list') {
+        // 桩必须"像真实菜单"：适配层有一条防脏数据规则 ——
+        // 菜品库为空、或总量 <10 且没有任何一道与本地种子菜同名时，
+        // 会判定为"手工测试数据"并整库退回本地菜谱。
+        // 用假名字（「云端菜」）会让 B1/B4/B5 永远走不到云端分支。
+        result = {
+          code: 0,
+          message: 'success',
+          data: {
+            list: [{ id: 'd001', name: '麻婆豆腐', canteen: '第一食堂', window: '川味窗口', price: 8, status: 1, tags: ['辣'] }],
+            total: 40,
+            hasMore: true
+          }
+        }
+      } else if (data.action === 'canteens') {
+        result = { code: 0, message: 'success', data: ['第一食堂', '第二食堂', '第三食堂'] }
+      } else {
+        result = { code: 0, message: 'success', data: [] }
+      }
     } else if (name === 'shiyu-recommend') {
-      result = { code: 0, message: 'success', data: { recommendations: [{ dish_id: 'x1', name: '云端菜', match_score: 95, reason: '云端理由', price: 12, canteen: '云端食堂', window: '1号窗', rating: 4.8, emoji: '🍜', tags: ['辣'] }], summary: '云端总结', engine: 'ai', model: 'deepseek-chat' } }
+      result = {
+        code: 0,
+        message: 'success',
+        data: {
+          recommendations: [{
+            dish_id: 'd001',
+            name: '麻婆豆腐',
+            match_score: 95,
+            reason: '云端理由',
+            price: 8,
+            canteen: '第一食堂',
+            window: '川味窗口',
+            rating: 4.8,
+            emoji: '🍲',
+            tags: ['辣']
+          }],
+          summary: '云端总结',
+          engine: 'ai',
+          model: 'deepseek-chat'
+        }
+      }
     } else if (name === 'shiyu-config') {
       result = { code: 0, message: 'success', data: { configured: true, model: 'deepseek-chat', has_key: true } }
     } else {
@@ -182,14 +239,16 @@ globalThis.uniCloud = {
   }
 }
 
-const cloudList = await dishApi.list({ keyword: '云端' })
-check('B1 菜品列表走云函数', cloudList.engine === 'cloud' && cloudList.list[0].name === '云端菜')
+const cloudList = await dishApi.list({ keyword: '麻婆' })
+check('B1 菜品列表走云函数', cloudList.engine === 'cloud' && cloudList.list[0].name === '麻婆豆腐',
+  `engine=${cloudList.engine} name=${cloudList.list[0] && cloudList.list[0].name}`)
 check('B2 云函数调用名与 action 正确',
-  cloudCalls.some((c) => c.name === 'shiyu-dish' && c.data.action === 'list' && c.data.keyword === '云端'),
+  cloudCalls.some((c) => c.name === 'shiyu-dish' && c.data.action === 'list' && c.data.keyword === '麻婆'),
   JSON.stringify(cloudCalls[cloudCalls.length - 1]))
 
 const cloudCanteens = await dishApi.canteens()
-check('B3 食堂列表走云函数', cloudCanteens.engine === 'cloud' && cloudCanteens.list[0] === '云端食堂')
+check('B3 食堂列表走云函数', cloudCanteens.engine === 'cloud' && cloudCanteens.list[0] === '第一食堂',
+  `engine=${cloudCanteens.engine} list=${JSON.stringify(cloudCanteens.list)}`)
 
 const cloudRec = await recommendApi.recommend({ meal_type: '午餐', taste: ['辣'], allergies: [], budget: null, canteen: '' }, '')
 check('B4 推荐走云函数并标记 ai 引擎', cloudRec.engine === 'ai' && cloudRec.model === 'deepseek-chat',
@@ -227,6 +286,9 @@ check('C4 写操作失败时明确抛错（不静默）', !!failSave.error, JSON
 /* ==================== 场景 D：云端数据陈旧/为空 → 必须兜底 ==================== */
 
 console.log('--- 场景 D：云端菜品库为空或残留旧数据 → 兜底 ---')
+
+// 场景 C 把模块状态锁成了"云端故障"，D 要重新验证云端可用路径，必须换干净实例
+await freshApi('D')
 
 /** 让下一次云函数调用返回指定的菜品数据 */
 function stubCloudDish(listResult, extraCanteens) {
@@ -270,18 +332,22 @@ check('D3 云端含未知食堂的旧数据时退回本地', d3.engine === 'loca
   `engine=${d3.engine} len=${d3.list.length}`)
 
 // D4：云端数据正常时必须尊重云端（不能永远本地兜底）
-dishApi.resetSource()
+//
+// 两个前提缺一不可：
+//   1) 换新模块实例：D1 已把 dishListSource 锁定为 'local'（持久锁），
+//      同实例下 D4 会被直接短路，永远验证不到云端路径；
+//   2) 桩要是"真实菜单"形状：适配层会拒绝「总量 <10 且无本地同名菜」的数据。
+await freshApi('D4')
 stubCloudDish({
-  list: [{ id: 'c1', name: '云端麻婆豆腐', canteen: '第一食堂', window: '川味窗口', price: 9, status: 1, tags: ['辣'] }],
-  total: 1,
-  hasMore: false
+  list: [{ id: 'd001', name: '麻婆豆腐', canteen: '第一食堂', window: '川味窗口', price: 8, status: 1, tags: ['辣'] }],
+  total: 40,
+  hasMore: true
 })
 const d4 = await dishApi.list({ pageSize: 20 })
-check('D4 云端数据正常时走云端', d4.engine === 'cloud' && d4.list[0].name === '云端麻婆豆腐',
+check('D4 云端数据正常时走云端', d4.engine === 'cloud' && d4.list[0].name === '麻婆豆腐',
   `engine=${d4.engine} name=${d4.list && d4.list[0] && d4.list[0].name}`)
 
 // D5：锁定本地后，翻页必须继续来自本地（分页连续性）
-dishApi.resetSource()
 stubCloudDish({ list: [], total: 0, hasMore: false })
 await dishApi.list({ pageSize: 15 })
 const d5 = await dishApi.list({ page: 2, pageSize: 15 })

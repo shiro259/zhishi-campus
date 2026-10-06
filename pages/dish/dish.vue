@@ -242,17 +242,18 @@ function count(value) {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>@import '@/common/tokens.scss';
+
 .dish-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $canvas;
   padding-bottom: 160rpx;
 }
 
 /* 菜品大图展示区：有图显示照片，无图由 DishImage 回退为 emoji 方块 */
 .hero {
   height: 420rpx;
-  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+  background: linear-gradient(135deg, $brand, $brand-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -278,14 +279,14 @@ function count(value) {
   flex: 1;
   font-size: 38rpx;
   font-weight: bold;
-  color: #333;
+  color: $ink;
   margin-right: 20rpx;
 }
 
 .dish-price {
   font-size: 38rpx;
   font-weight: bold;
-  color: #FF6B35;
+  color: $brand;
 }
 
 .meta-row {
@@ -296,16 +297,16 @@ function count(value) {
 }
 
 .rating {
-  color: #FF9800;
+  color: $warning;
 }
 
 .divider {
   margin: 0 14rpx;
-  color: #e0e0e0;
+  color: $line;
 }
 
 .loc {
-  color: #666;
+  color: $gray7;
   flex: 1;
 }
 
@@ -318,22 +319,22 @@ function count(value) {
 
 .tag {
   font-size: 22rpx;
-  color: #FF6B35;
-  background: #FFF0EB;
+  color: $brand;
+  background: $brand-soft;
   padding: 6rpx 18rpx;
   border-radius: 8rpx;
 }
 
 .tag-empty {
   font-size: 22rpx;
-  color: #bbb;
+  color: $gray4;
 }
 
 .stats-row {
   display: flex;
   margin-top: 26rpx;
   padding-top: 24rpx;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid $surface-sunken;
 }
 
 .stat-item {
@@ -346,12 +347,12 @@ function count(value) {
 .stat-num {
   font-size: 34rpx;
   font-weight: bold;
-  color: #FF6B35;
+  color: $brand;
 }
 
 .stat-label {
   font-size: 22rpx;
-  color: #999;
+  color: $gray6;
   margin-top: 8rpx;
 }
 
@@ -366,25 +367,25 @@ function count(value) {
 .section-title {
   font-size: 30rpx;
   font-weight: bold;
-  color: #333;
+  color: $ink;
   margin-bottom: 20rpx;
 }
 
 .desc {
   font-size: 26rpx;
-  color: #666;
+  color: $gray7;
   line-height: 1.7;
   display: block;
 }
 
 .empty-text {
-  color: #bbb;
+  color: $gray4;
 }
 
 /* 评价 */
 .review-item {
   padding: 22rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid $surface-sunken;
 }
 
 .review-item:last-child {
@@ -400,7 +401,7 @@ function count(value) {
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
-  background: #FFF0EB;
+  background: $brand-soft;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -410,7 +411,7 @@ function count(value) {
 
 .avatar-text {
   font-size: 26rpx;
-  color: #FF6B35;
+  color: $brand;
 }
 
 .review-user {
@@ -420,7 +421,7 @@ function count(value) {
 
 .nickname {
   font-size: 26rpx;
-  color: #333;
+  color: $ink;
   display: block;
 }
 
@@ -430,17 +431,17 @@ function count(value) {
 
 .stars text {
   font-size: 22rpx;
-  color: #ddd;
+  color: $line-strong;
   margin-right: 2rpx;
 }
 
 .stars text.on {
-  color: #FF9800;
+  color: $warning;
 }
 
 .review-time {
   font-size: 22rpx;
-  color: #bbb;
+  color: $gray4;
   flex-shrink: 0;
 }
 
@@ -448,7 +449,7 @@ function count(value) {
   display: block;
   margin-top: 14rpx;
   font-size: 26rpx;
-  color: #444;
+  color: $gray7;
   line-height: 1.7;
 }
 
@@ -457,7 +458,7 @@ function count(value) {
   text-align: center;
   padding: 24rpx 0;
   font-size: 24rpx;
-  color: #bbb;
+  color: $gray4;
 }
 
 .review-empty {
@@ -466,7 +467,7 @@ function count(value) {
   align-items: center;
   padding: 50rpx 0;
   font-size: 26rpx;
-  color: #bbb;
+  color: $gray4;
 }
 
 .review-empty-icon {
@@ -477,13 +478,13 @@ function count(value) {
 .more-btn {
   margin-top: 24rpx;
   height: 72rpx;
-  border: 2rpx solid #FF6B35;
+  border: 2rpx solid $brand;
   border-radius: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 26rpx;
-  color: #FF6B35;
+  color: $brand;
 }
 
 /* 底部按钮 */
@@ -511,14 +512,14 @@ function count(value) {
 }
 
 .btn-ghost {
-  color: #FF6B35;
-  border: 2rpx solid #FF6B35;
+  color: $brand;
+  border: 2rpx solid $brand;
 }
 
 .btn-primary {
   color: #fff;
   font-weight: 500;
-  background: linear-gradient(135deg, #FF6B35, #FF8C5A);
+  background: linear-gradient(135deg, $brand, $brand-dark);
 }
 
 /* 状态 */
@@ -536,7 +537,7 @@ function count(value) {
 
 .state-text {
   font-size: 28rpx;
-  color: #999;
+  color: $gray6;
   text-align: center;
   line-height: 1.6;
 }
@@ -545,8 +546,8 @@ function count(value) {
   margin-top: 30rpx;
   padding: 14rpx 44rpx;
   font-size: 26rpx;
-  color: #FF6B35;
-  border: 2rpx solid #FF6B35;
+  color: $brand;
+  border: 2rpx solid $brand;
   border-radius: 32rpx;
 }
 </style>

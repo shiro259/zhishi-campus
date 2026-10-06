@@ -650,11 +650,12 @@ function historyLabel(item) {
 </script>
 
 <style lang="scss" scoped>
+@import '@/common/tokens.scss';
 /**
  * 个人中心样式
  *
  * 全部使用 common/tokens.scss 的设计令牌（uni.scss 已自动注入）。
- * 改造前这页写死了 #FF6B35 / #f5f5f5 / 20rpx，还拿 emoji 当菜单图标。
+ * 改造前这页写死了 $brand / $canvas / 20rpx，还拿 emoji 当菜单图标。
  */
 
 .user-page {
@@ -675,7 +676,7 @@ function historyLabel(item) {
    * 这里比首页 Banner 压得更深更长：个人中心的文字块更高，会伸到渐变浅段去。
    * 实测第一版（浅段从 68% 开始）小字只有 3.24:1，达不到 4.5:1。
    */
-  background: linear-gradient(196deg, #c23a15 0%, #c7401a 88%, #ff7a4d 100%);
+  background: linear-gradient(196deg, $brand-dark 0%, $brand-dark 88%, $brand 100%);
   overflow: hidden;
   box-shadow: 0 12rpx 32rpx rgba(255, 90, 54, 0.2);
 }
@@ -740,7 +741,7 @@ function historyLabel(item) {
 /**
  * 身份标签：白底 + 深色字
  *
- * 文字不用品牌橙：实测 #ff5a36 压在白底上只有 3.09:1，11pt 小字达不到 4.5:1。
+ * 文字不用品牌橙：实测 $brand 压在白底上只有 3.09:1，11pt 小字达不到 4.5:1。
  * 品牌感由头部的橙色渐变和图标承担。
  */
 .role-tag {
@@ -1127,7 +1128,7 @@ function historyLabel(item) {
 
 .stars {
   font-size: $fs-cap;
-  color: #ffb300;
+  color: $warning;
 }
 
 .score {
@@ -1210,7 +1211,7 @@ function historyLabel(item) {
 .foot-fill {
   height: 100%;
   border-radius: $radius-pill;
-  background: linear-gradient(90deg, $brand 0%, #ff8a5c 100%);
+  background: linear-gradient(90deg, $brand 0%, $brand-dark 100%);
 }
 
 .foot-count {

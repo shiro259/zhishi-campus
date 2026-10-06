@@ -630,11 +630,12 @@ async function safeCall(fn, fallback) {
 </script>
 
 <style lang="scss" scoped>
+@import '@/common/tokens.scss';
 /**
  * 菜单页样式
  *
  * 全部使用 common/tokens.scss 的设计令牌（uni.scss 已自动注入）。
- * 改造前这里同样写死了 #FF6B35 / #f5f5f5 / 20rpx，还拿 emoji 当图标。
+ * 改造前这里同样写死了 $brand / $canvas / 20rpx，还拿 emoji 当图标。
  */
 
 .dish-list-page {
@@ -658,7 +659,7 @@ async function safeCall(fn, fallback) {
    * 背景亮度对应的对比度只有 4.14:1，达不到小字 4.5:1 的标准。
    * 浅段留给压上来的白色 AI 卡片，视觉上有层次但不影响可读性。
    */
-  background: linear-gradient(196deg, #c23a15 0%, #cf3f19 68%, #ff7a4d 100%);
+  background: linear-gradient(196deg, $brand-dark 0%, $brand-dark 68%, $brand 100%);
   overflow: hidden;
   box-shadow: 0 12rpx 32rpx rgba(255, 90, 54, 0.2);
 }
@@ -716,7 +717,7 @@ async function safeCall(fn, fallback) {
   width: 60rpx;
   height: 60rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, $brand 0%, #ff8a5c 100%);
+  background: linear-gradient(135deg, $brand 0%, $brand-dark 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -786,7 +787,7 @@ async function safeCall(fn, fallback) {
   height: 88rpx;
   padding: 0 34rpx;
   border-radius: $radius-pill;
-  background: linear-gradient(135deg, $brand 0%, #ff8a5c 100%);
+  background: linear-gradient(135deg, $brand 0%, $brand-dark 100%);
   box-shadow: 0 8rpx 20rpx rgba(255, 90, 54, 0.28);
   display: flex;
   align-items: center;
@@ -861,7 +862,7 @@ async function safeCall(fn, fallback) {
 
 /* 排序选中：品牌色实底 */
 .chip-on {
-  background: linear-gradient(135deg, $brand 0%, #ff8a5c 100%);
+  background: linear-gradient(135deg, $brand 0%, $brand-dark 100%);
   border-color: transparent;
   box-shadow: 0 8rpx 18rpx rgba(255, 90, 54, 0.26);
 }
@@ -920,7 +921,7 @@ async function safeCall(fn, fallback) {
 }
 
 .dish-card:active {
-  background: #fdfcfa;
+  background: $surface;
 }
 
 .dish-img-wrap {

@@ -192,10 +192,11 @@ onReachBottom(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>@import '@/common/tokens.scss';
+
 .data-page {
   padding: 24rpx;
-  background: #f5f5f5;
+  background: $canvas;
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -213,10 +214,10 @@ onReachBottom(() => {
   box-sizing: border-box;
 }
 
-.ov-total { background: linear-gradient(135deg, #667eea, #764ba2); }
-.ov-pending { background: linear-gradient(135deg, #ff9f45, #ff6b35); }
-.ov-pass { background: linear-gradient(135deg, #43c6ac, #2ba58c); }
-.ov-reject { background: linear-gradient(135deg, #8e8e8e, #5f5f5f); }
+.ov-total { background: linear-gradient(135deg, $brand, $brand-dark); }
+.ov-pending { background: linear-gradient(135deg, $brand, $brand); }
+.ov-pass { background: linear-gradient(135deg, $success, $success); }
+.ov-reject { background: linear-gradient(135deg, $gray6, $gray7); }
 
 .ov-num {
   display: block;
@@ -235,7 +236,7 @@ onReachBottom(() => {
 .tip-card {
   display: flex;
   align-items: flex-start;
-  background: #fffbe6;
+  background: $warning-soft;
   border-radius: 16rpx;
   padding: 20rpx 22rpx;
   margin-top: 24rpx;
@@ -249,7 +250,7 @@ onReachBottom(() => {
 .tip-text {
   flex: 1;
   font-size: 22rpx;
-  color: #a86b00;
+  color: $warning;
   line-height: 1.6;
 }
 
@@ -263,19 +264,19 @@ onReachBottom(() => {
   background: #fff;
   border-radius: 30rpx;
   font-size: 25rpx;
-  color: #666;
+  color: $gray7;
   margin-right: 16rpx;
 }
 
 .filter-item.active {
-  background: #333;
+  background: $ink;
   color: #fff;
 }
 
 .loading {
   text-align: center;
   font-size: 26rpx;
-  color: #999;
+  color: $gray6;
   padding: 80rpx 0;
 }
 
@@ -300,7 +301,7 @@ onReachBottom(() => {
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
-  background: #fff3ed;
+  background: $brand-soft;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,14 +316,14 @@ onReachBottom(() => {
 .nickname {
   display: block;
   font-size: 27rpx;
-  color: #333;
+  color: $ink;
   font-weight: 500;
 }
 
 .dish-name {
   display: block;
   font-size: 22rpx;
-  color: #999;
+  color: $gray6;
   margin-top: 4rpx;
 }
 
@@ -332,9 +333,9 @@ onReachBottom(() => {
   border-radius: 18rpx;
 }
 
-.status-0 { background: #fff3e0; color: #e6871a; }
-.status-1 { background: #e8f8f0; color: #2ba58c; }
-.status-2 { background: #fdecec; color: #e64340; }
+.status-0 { background: $warning-soft; color: $warning; }
+.status-1 { background: $success-soft; color: $success; }
+.status-2 { background: $danger-soft; color: $danger; }
 
 .stars-row {
   display: flex;
@@ -345,18 +346,18 @@ onReachBottom(() => {
 
 .stars {
   font-size: 24rpx;
-  color: #FF9800;
+  color: $warning;
 }
 
 .time {
   font-size: 21rpx;
-  color: #bbb;
+  color: $gray4;
 }
 
 .content {
   display: block;
   font-size: 25rpx;
-  color: #555;
+  color: $gray7;
   line-height: 1.6;
   margin-top: 12rpx;
 }
@@ -375,13 +376,13 @@ onReachBottom(() => {
 .empty-text {
   margin-top: 18rpx;
   font-size: 26rpx;
-  color: #999;
+  color: $gray6;
 }
 
 .load-more {
   text-align: center;
   font-size: 26rpx;
-  color: #666;
+  color: $gray7;
   padding: 26rpx 0;
 }
 </style>

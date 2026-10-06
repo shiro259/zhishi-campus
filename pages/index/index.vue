@@ -70,6 +70,18 @@
       </view>
     </view>
 
+    <!-- ==================== 多人拼饭入口 ==================== -->
+    <view class="group-entry" @click="goGroup">
+      <view class="group-icon">
+        <Icon name="user" :size="34" color="#ff5a36" />
+      </view>
+      <view class="group-body">
+        <text class="group-title">几个人一起吃？</text>
+        <text class="group-sub">有人忌口、有人要辣？算出大家都能吃的菜</text>
+      </view>
+      <Icon name="right" :size="30" color="#b8b2aa" />
+    </view>
+
     <!-- ==================== 今日热门 ==================== -->
     <view class="section" v-if="hotList.length">
       <view class="sec-head">
@@ -395,6 +407,11 @@ function dishKey(d) {
   return (d && (d.id || d._id)) || (d && d.name) || ''
 }
 
+/** 去多人拼饭页 */
+function goGroup() {
+  uni.navigateTo({ url: '/pages/group/group' })
+}
+
 function dishEmoji(d) {
   if (d && d.emoji) return d.emoji
   // 菜品没有真实图片：优先 emoji 字段，其次按分类查 EMOJI_MAP，最后兜底
@@ -415,12 +432,13 @@ function goDetail(d) {
 </script>
 
 <style lang="scss" scoped>
+@import '@/common/tokens.scss';
 /**
  * 首页样式
  *
  * 全部使用 common/tokens.scss 的设计令牌（uni.scss 已自动注入，无需 import）：
  * 品牌橙 $brand、暖白画布 $canvas、统一圆角 $radius-card / $radius-lg、
- * 两档极浅投影。之前这里写死了一堆 #FF6B35 / 20rpx / emoji 图标，
+ * 两档极浅投影。之前这里写死了一堆 $brand / 20rpx / emoji 图标，
  * 是全项目唯一没走设计系统的页面，所以看起来比其它页面「廉价」。
  */
 
@@ -591,7 +609,7 @@ function goDetail(d) {
   width: 76rpx;
   height: 76rpx;
   border-radius: $radius-card;
-  background: linear-gradient(135deg, $brand, #ff8a5c);
+  background: linear-gradient(135deg, $brand, $brand-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -636,7 +654,7 @@ function goDetail(d) {
 .ai-btn {
   margin-top: 12rpx;
   height: $h-btn;
-  background: linear-gradient(135deg, $brand, #ff8a5c);
+  background: linear-gradient(135deg, $brand, $brand-dark);
   border-radius: $radius-pill;
   display: flex;
   align-items: center;
@@ -676,6 +694,51 @@ function goDetail(d) {
   border-radius: $radius-pill;
   padding: 10rpx 26rpx;
   margin: 0 16rpx 16rpx 0;
+}
+
+/* ==================== 多人拼饭入口 ==================== */
+
+.group-entry {
+  display: flex;
+  align-items: center;
+  margin: $gap-lg $gap-page 0;
+  padding: $gap-card;
+  background: $surface;
+  border: 2rpx solid $line;
+  border-radius: $radius-card;
+  box-shadow: $shadow-card;
+}
+
+.group-icon {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: $radius;
+  background: $brand-soft;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.group-body {
+  flex: 1;
+  min-width: 0;
+  margin: 0 18rpx;
+}
+
+.group-title {
+  display: block;
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  color: $ink;
+}
+
+.group-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: $fs-tag;
+  color: $gray6;
+  line-height: 1.5;
 }
 
 /* ==================== 通用区块 ==================== */
