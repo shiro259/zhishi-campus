@@ -1,0 +1,37 @@
+# Mac
+.DS_Store
+**/.DS_Store
+
+# vim/vi
+*.swp
+
+# JavaScript
+node_modules/
+.node_modules/
+.eslintcache
+.npm-cache/
+# HBuilderX / uni-app 编译产物与调试缓存
+unpackage/
+.preview/
+
+# 临时诊断 / 调试脚本
+.dbg*.mjs
+.diag-*.mjs
+.seed-*.mjs
+
+# 自检脚本 _search/ 下临时安装的依赖与缓存（node_modules/ 上面已忽略）
+_search/package-lock.json
+_search/.npmcache/
+
+# 首页 UI 用的图片处理 / 预览渲染脚本（_ui/）的依赖与缓存
+_ui/package-lock.json
+_ui/.npmcache/
+
+# python
+*.pyc
+__pycache__/
+
+# 可选后端（FastAPI 备用链路）的虚拟环境与本地数据库，不入库
+backend/venv/
+backend/.env
+backend/*.db

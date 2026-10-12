@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>食遇校园 · 产品信息架构</title>
+<!--
+  产品信息架构思维导图
+  · 纯内联实现，无任何外部依赖（离线可用，答辩现场直接浏览器打开）
+  · 支持：点击节点折叠/展开、全部展开、全部收起、适应窗口、滚轮缩放
+  · 内容与 pages.json / uniCloud-aliyun/cloudfunctions 逐项对应
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --brand: #ff5a36;
+    --brand-soft: #fff1ec;
+    --ink: #14110f;
+    --gray7: #4a443f;
+    --gray6: #8a8580;
+    --gray4: #b8b2aa;
+    --line: #eeece7;
+    --surface: #fff;
+    --canvas: #f7f6f3;
+    --c-user: #2f6df6;
+    --c-admin: #7a5af8;
+    --c-svc: #1f9d63;
+    --c-data: #c98a1b;
+    --c-flow: #d93a3a;
+  }
+
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+                 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+    overflow: hidden;
+  }
+
+  /* ---------------- 顶栏 ---------------- */
+  .topbar {
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    position: relative;
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--brand); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700;
+  }
+  .brand-title { font-size: 16px; font-weight: 650; letter-spacing: -.2px; }
+  .brand-sub { font-size: 12px; color: var(--gray6); }
+
+  .spacer { flex: 1; }
+
+  .btn {
+    height: 34px; padding: 0 14px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 17px;
+    font-size: 13px; color: var(--gray7);
+    cursor: pointer;
+    transition: .15s;
+    font-family: inherit;
+  }
+  .btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 500; }
+  .btn.primary:hover { background: #e8481f; border-color: #e8481f; color: #fff; }
+
+  .legend { display: flex; gap: 14px; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray6); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 3px; }
+
+  /* ---------------- 画布 ---------------- */
+  .stage { position: absolute; inset: 56px 0 0 0; overflow: hidden; cursor: grab; }
+  .stage.grabbing { cursor: grabbing; }
+  svg { display: block; transform-origin: 0 0; }
+
+  .link { fill: none; stroke: var(--line); stroke-width: 1.6px; }
+  .link.c-user { stroke: #cddffd; }
+  .link.c-admin { stroke: #ded6fd; }
+  .link.c-svc { stroke: #c9ecdb; }
+  .link.c-data { stroke: #f3e2c0; }
+  .link.c-flow { stroke: #f7d2d2; }
+
+  .node { cursor: pointer; }
+  .node-box { rx: 9; ry: 9; }
+  .node-label { font-size: 13px; fill: var(--ink); dominant-baseline: middle; }
+  .node-label.lv0 { font-size: 19px; font-weight: 700; fill: #fff; }
+  .node-label.lv1 { font-size: 15px; font-weight: 650; }
+  .node-label.lv2 { font-size: 13px; }
+  .node-label.lv3 { font-size: 12px; fill: var(--gray7); }
+  .node-label.leaf { cursor: default; }
+
+  .node-count { font-size: 10px; fill: var(--gray4); dominant-baseline: middle; }
+  .node-toggle { font-size: 11px; fill: var(--gray4); dominant-baseline: middle; }
+
+  .badge { font-size: 10px; dominant-baseline: middle; fill: #fff; }
+
+  /* 悬浮信息条 */
+  .hint {
+    position: absolute; left: 20px; bottom: 18px;
+    font-size: 12px; color: var(--gray6);
+    background: rgba(255,255,255,.92);
+    border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 14px;
+    line-height: 1.7;
+    pointer-events: none;
+  }
+  .hint b { color: var(--ink); font-weight: 600; }
+
+  /* 右侧详情抽屉 */
+  .aside {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 340px;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    transform: translateX(100%);
+    transition: transform .22s ease;
+    z-index: 9;
+    display: flex; flex-direction: column;
+  }
+  .aside.open { transform: translateX(0); }
+  .aside-head {
+    height: 56px; padding: 0 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .aside-title { font-size: 15px; font-weight: 650; }
+  .aside-close { cursor: pointer; color: var(--gray6); font-size: 20px; line-height: 1; }
+  .aside-body { padding: 18px; overflow-y: auto; font-size: 13px; line-height: 1.75; color: var(--gray7); }
+  .aside-body h4 { font-size: 13px; color: var(--ink); margin: 16px 0 8px; font-weight: 650; }
+  .aside-body h4:first-child { margin-top: 0; }
+  .aside-body ul { padding-left: 18px; }
+  .aside-body li { margin-bottom: 5px; }
+  .aside-body code {
+    background: var(--canvas); border: 1px solid var(--line);
+    border-radius: 5px; padding: 1px 6px; font-size: 12px;
+    font-family: ui-monospace, Consolas, monospace; color: var(--brand);
+  }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .tag {
+    font-size: 11px; padding: 2px 9px; border-radius: 999px;
+    background: var(--brand-soft); color: var(--brand); border: 1px solid #ffd9cc;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">食</div>
+    <div>
+      <div class="brand-title">食遇校园 · 产品信息架构</div>
+      <div class="brand-sub">AI 智能食堂推荐</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:var(--c-user)"></span>用户端</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--c-admin)"></span>管理端</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--c-svc)"></span>服务层</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--c-data)"></span>数据层</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--c-flow)"></span>任务流</span>
+  </div>
+
+  <button class="btn" onclick="expandAll()">全部展开</button>
+  <button class="btn" onclick="collapseAll()">全部收起</button>
+  <button class="btn primary" onclick="fitView()">适应窗口</button>
+</div>
+
+<div class="stage" id="stage">
+  <svg id="svg"></svg>
+  <div class="hint">
+    <b>点击节点</b>折叠 / 展开　·　<b>拖拽</b>平移　·　<b>滚轮</b>缩放　·　<b>点击叶子节点</b>看详情
+  </div>
+</div>
+
+<div class="aside" id="aside">
+  <div class="aside-head">
+    <div class="aside-title" id="asideTitle">详情</div>
+    <div class="aside-close" onclick="closeAside()">×</div>
+  </div>
+  <div class="aside-body" id="asideBody"></div>
+</div>
+
+<script>
+/* ============================================================================
+ * 数据：产品信息架构
+ * 与 pages.json、uniCloud-aliyun/cloudfunctions/ 逐项对应
+ * ==========================================================================*/
+
+const TREE = {
+  label: '食遇校园',
+  note: '解决「每天不知道吃啥」的校园食堂 AI 推荐工具。三条设计主线：AI 可对话 / 约束可信 / 永远可用。',
+  tags: ['uni-app', 'uniCloud 云函数', '大模型 API'],
+  children: [
+
+    /* ------------------------------ 用户端 ------------------------------ */
+    {
+      label: '用户端（学生）', color: 'user',
+      note: '9 个页面，其中 4 个是 tabBar 主入口。不做登录拦截，未登录也完整可用。',
+      children: [
+        {
+          label: '首页', route: 'pages/index/index', badge: 'tab',
+          note: '目标：3 秒内把用户分流到「我就想吃某个菜」或「我不知道吃啥」。导航栏自绘（navigationStyle: custom），把问候语与搜索整合进头部。',
+          children: [
+            { label: '按时段问候 + 昵称' },
+            { label: '搜索入口', flow: '→ 菜单页' },
+            { label: 'AI 推荐主入口', flow: '→ AI 推荐页' },
+            { label: '快捷口味标签', note: '点击即预置偏好并跳到推荐页，让用户少点几步。' },
+            { label: '多人拼饭入口', flow: '→ 多人拼饭页' },
+            { label: '食堂快捷入口', flow: '→ 菜单页（带筛选）' },
+            { label: '今日热门 / 高分红榜 / 新品尝鲜' },
+            { label: '数据来源提示条', note: '云端失败时显示原因 + 重试按钮，不静默降级。' }
+          ]
+        },
+        {
+          label: 'AI 推荐', route: 'pages/recommend/recommend', badge: 'tab', star: true,
+          note: '这是一条对话，不是一个表单。核心页。',
+          children: [
+            { label: '欢迎区', note: '首次进入展示，开始对话后收起。含助手形象、快捷提问入口、今日推荐预览。' },
+            {
+              label: '对话区',
+              children: [
+                { label: '文字回复' },
+                { label: '菜品卡片', note: '序号 · 图 · 名 · 价 · 食堂窗口 · 标签 · AI 理由；操作：看详情 / 换一道。' },
+                { label: '澄清选项卡片', note: '需求自相矛盾时给出可点选项，点一下即定，也可直接打字回答。' },
+                { label: '等待提示', note: '等超过 4 秒出现说明文案，避免用户以为卡死。' }
+              ]
+            },
+            {
+              label: '累计条件条', note: '常驻显示当前生效的条件，让用户看见 AI 记住了什么。',
+              children: [
+                { label: '当前条件（辣 · 20元内 · 忌香菜）' },
+                { label: '已排除 N 道' },
+                { label: '重新开始' }
+              ]
+            },
+            { label: '输入栏' }
+          ]
+        },
+        {
+          label: '菜单浏览', route: 'pages/dish-list/dish-list', badge: 'tab',
+          note: '搜索 / 食堂 / 分类 / 排序 / 分页，两列卡片网格。接收首页与拼饭页传来的筛选参数。',
+          children: [
+            { label: '吸附筛选区' },
+            { label: '排序（默认/评分/价格）' },
+            { label: '两列卡片网格' },
+            { label: '空态 / 失败重试' }
+          ]
+        },
+        {
+          label: '菜品详情', route: 'pages/dish/dish',
+          note: '大图展示（无图回退 emoji）、信息卡、统计块、菜品介绍、同学评价、底部固定操作条。',
+          children: [
+            { label: '大图展示区' },
+            { label: '推荐次数 / 评价数' },
+            { label: '同学评价列表' },
+            { label: '底部操作：换一道 / 写评价' }
+          ]
+        },
+        {
+          label: '多人拼饭', route: 'pages/group/group', star: true,
+          note: '把忌口从「个人过滤」变成「多人取交集」，并给出可执行的 点菜方案。',
+          children: [
+            {
+              label: '成员管理（最多 8 人）',
+              children: [
+                { label: '口味（多选）' },
+                { label: '忌口（多选）' },
+                { label: '吃素 / 不吃重油' }
+              ]
+            },
+            { label: '附加条件（人均预算 / 食堂）' },
+            {
+              label: '结果',
+              children: [
+                { label: '点菜方案', star: true, note: '每道菜标【全员】或【部分】；部分人可吃的标明谁不能吃；合计与人均；每个人各能吃到几道；有人吃不上时警告。' },
+                { label: '几点提醒（洞察）', note: '谁的选择最少、哪个忌口影响最大、辣与清淡并存怎么配。' },
+                { label: '大家都能吃' },
+                { label: '只有部分人能吃的' }
+              ]
+            }
+          ]
+        },
+        { label: '收藏', route: 'pages/favorites/favorites', note: '本机存储，按 byIds 批量补全菜品信息。' },
+        {
+          label: '发表评价', route: 'pages/review/review',
+          note: '星级 + 内容（至少 5 字）+ 快捷标签；需登录；提交后提示「审核后展示」。',
+          children: [
+            { label: '星级选择（含中文文案）' },
+            { label: '内容输入 + 字数计数' },
+            { label: '快捷标签追加' }
+          ]
+        },
+        {
+          label: '我的', route: 'pages/user/user', badge: 'tab',
+          children: [
+            { label: '身份区 / 未登录态' },
+            { label: '我的口味档案', note: '上次偏好 + 编辑 + 清除。' },
+            { label: '我的评价（就地展开）' },
+            { label: '推荐历史' },
+            { label: '管理后台（仅管理员）' },
+            { label: '退出登录' }
+          ]
+        },
+        {
+          label: '身份设置', route: 'pages/login/login',
+          note: '无后端登录：昵称 + 头像 + 身份，全部存本机。用于评价署名与后台权限演示。',
+          children: [
+            { label: '昵称（2~12 字校验）' },
+            { label: '头像（8 个 emoji）' },
+            { label: '身份（同学 / 管理员）' },
+            { label: '微信一键登录（失败静默降级）' }
+          ]
+        }
+      ]
+    },
+
+    /* ------------------------------ 管理端 ------------------------------ */
+    {
+      label: '管理端（食堂运营）', color: 'admin',
+      note: '7 个页面。需要管理口令才能写数据；密钥只存云端，不下发客户端。',
+      children: [
+        {
+          label: '后台首页', route: 'pages/admin/index',
+          children: [
+            { label: '功能宫格（6 个入口）' },
+            { label: '数据初始化', note: '同步菜品库 / 重置菜品库，均有二次确认。' }
+          ]
+        },
+        {
+          label: '数据看板', route: 'pages/admin/dashboard',
+          children: [
+            { label: '四项统计（菜品/食堂/评分/人均价）' },
+            { label: '食堂菜品分布（条形图）' },
+            { label: '口味标签热度 TOP8' },
+            { label: 'Top 推荐菜品' }
+          ]
+        },
+        {
+          label: '菜品管理', route: 'pages/admin/dishes',
+          children: [
+            { label: '搜索 + 食堂筛选' },
+            { label: '列表 + 上架状态' },
+            { label: '编辑 / 删除（二次确认）' },
+            { label: '右下悬浮新增' }
+          ]
+        },
+        {
+          label: '菜品编辑', route: 'pages/admin/dish-edit', star: true,
+          note: '关键：tags 里必须包含食材名（香菜/葱/蒜/花生/海鲜/牛肉/羊肉/内脏/鸡蛋/牛奶），因为忌口硬过滤就是按 tags 精确匹配。漏标 = 过敏同学可能被推荐到忌口菜。',
+          children: [
+            { label: '基本信息' },
+            { label: '口味与食材标签', star: true },
+            { label: '菜品图片（实时预览）' },
+            { label: '备用 emoji' },
+            { label: '底部固定操作条' }
+          ]
+        },
+        {
+          label: '评价审核', route: 'pages/admin/reviews',
+          children: [
+            { label: 'Tab：待审核 / 全部' },
+            { label: '通过 / 拒绝' }
+          ]
+        },
+        {
+          label: '评价数据', route: 'pages/admin/users',
+          note: '身份存本机，后台不集中存储用户账号，因此这里汇总的是评价数据。',
+          children: [
+            { label: '四项统计' },
+            { label: '状态筛选' }
+          ]
+        },
+        {
+          label: 'AI 配置', route: 'pages/admin/ai-config', star: true,
+          note: '密钥保存后永不下发客户端；含连通性测试与 401/404/超时排查提示。',
+          children: [
+            { label: '服务商 / base_url / model' },
+            { label: 'api_key（隐藏输入）' },
+            { label: '管理口令' },
+            { label: '测试连接' },
+            { label: '数据初始化' }
+          ]
+        }
+      ]
+    },
+
+    /* ------------------------------ 服务层 ------------------------------ */
+    {
+      label: '服务层（uniCloud 云函数）', color: 'svc',
+      note: '9 个云函数，按域划分。所有响应统一 { code, message, data }，任何异常都不返回 500。',
+      children: [
+        {
+          label: '推荐域', children: [
+            {
+              label: 'shiyu-agent', star: true,
+              note: '可对话推荐：多轮修正 + 矛盾澄清。会话状态存云端；指代解析与冲突检测走规则（可靠可测），模糊语义交给模型。',
+              children: [
+                { label: '读会话（累计偏好/已排除/上轮顺序）' },
+                { label: '解析本句的「修正」' },
+                { label: '矛盾检测 → 先澄清' },
+                { label: '候选召回 + 忌口硬过滤' },
+                { label: '调模型 + 严格校验' },
+                { label: '写回会话' }
+              ]
+            },
+            {
+              label: 'shiyu-recommend',
+              note: '单轮推荐：偏好 → 一批菜。Prompt 构建 → 模型调用 → 严格校验（id 必须来自候选、不得含忌口、不得超预算）。'
+            }
+          ]
+        },
+        {
+          label: '数据域', children: [
+            {
+              label: 'shiyu-dish',
+              note: '列表/详情/榜单/食堂/分类 + 增删改。只返回上架菜品；_id 映射出 id；写操作需管理口令。'
+            },
+            {
+              label: 'shiyu-seed',
+              note: '菜品库初始化。会修复缺失 status 字段的旧数据 —— 否则会出现「食堂列表里有、点进去没有」的怪现象。'
+            }
+          ]
+        },
+        {
+          label: '运营域', children: [
+            {
+              label: 'shiyu-group', star: true,
+              note: '多人拼饭：多人约束取交集 + 点菜方案。纯算法（集合运算 + 打分），忌口判定不交给模型。'
+            },
+            {
+              label: 'shiyu-review',
+              note: '评价发布/查询/审核。通过审核后才公开；审核通过会重算菜品评分。'
+            }
+          ]
+        },
+        {
+          label: '平台域', children: [
+            {
+              label: 'shiyu-config', star: true,
+              note: 'AI 配置读写 + 连通性测试 + 微信登录。api_key 只存云端；管理口令用 SHA-256 摘要存储。'
+            },
+            { label: 'wechat-login', note: '换取 openid；未配置时返回未开启，前端降级手动身份。' }
+          ]
+        },
+        {
+          label: '对话域', children: [
+            { label: 'shiyu-chat', note: '通用 AI 问答（文字 + 菜品标注）。与 shiyu-agent 互补：前者开放问答，后者结构化推荐。' }
+          ]
+        }
+      ]
+    },
+
+    /* ------------------------------ 数据层 ------------------------------ */
+    {
+      label: '数据层', color: 'data',
+      note: '云端 4 个集合 + 本机 9 类存储。写操作一律走云函数，客户端只读。',
+      children: [
+        {
+          label: '云端集合', children: [
+            { label: 'dishes', note: '菜品。read: true，写: false —— 只允许云函数写入。' },
+            { label: 'shiyu-sessions', note: '对话会话：累计偏好 / 已排除菜品 / 上轮顺序 / 已问过的澄清项。权限全 false，2 小时过期。' },
+            { label: 'reviews', note: '评价。read: doc.status == 1 —— 只公开已通过的。' },
+            { label: 'shiyu-config', note: 'AI 密钥与配置。权限全 false，含 api_key，严禁对客户端开放。' }
+          ]
+        },
+        {
+          label: '本机存储', note: '无后端账号体系，轻量数据放本机，退出应用也在。', children: [
+            { label: 'userInfo（身份）' },
+            { label: 'shiyu_pref（口味档案）' },
+            { label: 'shiyu_history（推荐历史）' },
+            { label: 'shiyu_favorites（收藏）' },
+            { label: 'shiyu_agent_session（对话会话 ID）' },
+            { label: 'shiyu_group_members（拼饭成员）' },
+            { label: 'shiyu_admin_token（管理口令）' },
+            { label: 'shiyu_local_reviews（离线评价暂存）' }
+          ]
+        }
+      ]
+    },
+
+    /* ------------------------------ 任务流 ------------------------------ */
+    {
+      label: '关键任务流', color: 'flow',
+      children: [
+        {
+          label: '主流程：不知道吃啥 → 就吃这个', star: true,
+          children: [
+            { label: '① 输入（一句话 / 快捷标签 / 精细筛选）' },
+            { label: '② 客户端本地解析（零延迟预览已识别标签）' },
+            { label: '③ shiyu-agent 读会话 → 解析修正 → 合并累计偏好' },
+            { label: '④ 矛盾检测 → 有冲突先澄清（不硬猜）' },
+            { label: '⑤ 候选召回 + 忌口硬过滤（第一道）' },
+            { label: '⑥ 调大模型（候选 30 条 / 输出 900 tokens）' },
+            { label: '⑦ 严格校验输出（第二道：id 存在 / 不含忌口 / 不超预算）' },
+            { label: '⑧ 校验不过 → 本地规则引擎兜底' },
+            { label: '⑨ 写回会话 + 页面渲染（含 engine 标识）' }
+          ]
+        },
+        {
+          label: '降级链（保证永远可用）', children: [
+            { label: '大模型可用 → engine = ai（真·大模型）' },
+            { label: '模型失败 → 云端规则引擎 → engine = cloud' },
+            { label: '云端不可用 → 本机菜谱 + 规则引擎 → engine = local' },
+            { label: '图片缺失 → emoji 回退（不出现破图）' }
+          ]
+        },
+        {
+          label: '拼饭流程', children: [
+            { label: '填成员（口味 + 忌口 + 吃素/不吃重油）' },
+            { label: '逐菜逐人判定能不能吃（硬过滤）' },
+            { label: '分三类：全员 / 部分（标出是谁）/ 谁也吃不了' },
+            { label: '构造点菜方案（相似度去重，避免两碗面）' },
+            { label: '逐人覆盖检查（有人吃不上 → 明确警告）' }
+          ]
+        },
+        {
+          label: '评价流程', children: [
+            { label: '提交 → 待审核（不公开）' },
+            { label: '管理端审核通过 → 公开展示' },
+            { label: '同时重算菜品评分与评价数' }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+/* ============================================================================
+ * 布局：横向树（根在左）
+ * ==========================================================================*/
+
+const COLORS = {
+  user: '#2f6df6', admin: '#7a5af8', svc: '#1f9d63', data: '#c98a1b', flow: '#d93a3a'
+};
+
+const NODE_H = 30;        // 节点行高
+const LEVEL_GAP = 210;    // 层级水平间距
+const SIBLING_GAP = 9;    // 同级垂直间距
+const PAD_X = 40;
+const PAD_Y = 30;
+
+const svg = document.getElementById('svg');
+const stage = document.getElementById('stage');
+
+let collapsed = new Set();   // 存放被折叠节点的 id
+let layout = [];             // 扁平化的布局结果
+
+/** 给每个节点分配稳定 id 与层级 */
+function prepare(node, depth, parentId, branchColor, idx) {
+  node._depth = depth;
+  node._id = parentId ? parentId + '-' + idx : 'root';
+  node._color = branchColor || node.color || null;
+  node._children = node.children || [];
+  node._children.forEach((c, i) => prepare(c, depth + 1, node._id, node._color, i));
+  return node;
+}
+prepare(TREE, 0, null, null, 0);
+
+/** 把节点文字估算成像素宽度（中文按字号算，英文按 0.55 倍） */
+function textWidth(str, size) {
+  let w = 0;
+  for (const ch of String(str)) {
+    w += /[\u4e00-\u9fa5\uff00-\uffef]/.test(ch) ? size : size * 0.56;
+  }
+  return w;
+}
+
+function nodeFontSize(depth) {
+  return depth === 0 ? 19 : depth === 1 ? 15 : depth === 2 ? 13 : 12;
+}
+
+const BOX_PAD_X = 11;
+
+/** 计算每个节点的盒子宽度 */
+function measure(node) {
+  const size = nodeFontSize(node._depth);
+  let w = textWidth(node.label, size) + BOX_PAD_X * 2;
+  if (node.route) w += 0; // 路由不画在节点上，放详情里
+  if (node.star) w += 14;
+  if (node.badge) w += 8 + textWidth(node.badge, 10) + 10;
+  if (node._children.length && node._depth >= 1) w += 16; // 折叠标记
+  node._w = Math.round(w);
+  node._h = node._depth === 0 ? 42 : NODE_H + (node._depth === 1 ? 8 : 4);
+  node._children.forEach(measure);
+}
+measure(TREE);
+
+/** 横向树布局：先算子树高度，再定位置 */
+function layoutTree() {
+  layout = [];
+  let cursorY = PAD_Y;
+
+  function walk(node, x) {
+    const visible = !collapsed.has(node._id);
+    const kids = visible ? node._children : [];
+
+    let y;
+    const childYs = [];
+
+    if (kids.length) {
+      for (const k of kids) childYs.push(walk(k, x + node._w + LEVEL_GAP));
+      y = (childYs[0] + childYs[childYs.length - 1]) / 2;
+    } else {
+      y = cursorY;
+      cursorY += node._h + SIBLING_GAP;
+    }
+
+    layout.push({ node, x, y, visible, childYs });
+    return y;
+  }
+
+  walk(TREE, PAD_X);
+
+  // 收集连线
+  const links = [];
+  for (const item of layout) {
+    if (!item.visible) continue;
+    const kids = item.node._children;
+    kids.forEach((k, i) => {
+      const childItem = layout.find((l) => l.node === k);
+      if (childItem) {
+        links.push({
+          from: item,
+          to: childItem,
+          color: item.node._color || (item.node._depth === 1 ? item.node.color : null)
+        });
+      }
+    });
+  }
+
+  return { links, height: cursorY + PAD_Y };
+}
+
+/* ============================================================================
+ * 渲染
+ * ==========================================================================*/
+
+function render() {
+  const { links, height } = layoutTree();
+  const maxX = Math.max(...layout.map((l) => l.x + l.node._w));
+  const width = maxX + PAD_X;
+
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+  let html = '';
+
+  // 连线：贝塞尔
+  for (const l of links) {
+    const x1 = l.from.x + l.from.node._w;
+    const y1 = l.from.y;
+    const x2 = l.to.x;
+    const y2 = l.to.y;
+    const mx = (x1 + x2) / 2;
+    const cls = l.color ? 'link c-' + l.color : 'link';
+    html += `<path class="${cls}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" />`;
+  }
+
+  // 节点
+  for (const item of layout) {
+    const n = item.node;
+    const x = item.x;
+    const y = item.y - n._h / 2;
+    const d = n._depth;
+    const hasKids = n._children.length > 0;
+    const isCollapsed = collapsed.has(n._id);
+
+    let fill = '#fff', stroke = COLORS[n._color] || '#eeece7', strokeW = 1.4, textFill = null;
+
+    if (d === 0) {
+      fill = COLORS[n.color] || '#14110f';
+      stroke = fill; strokeW = 0;
+    } else if (d === 1) {
+      fill = '#fff';
+      stroke = COLORS[n.color] || '#eeece7';
+      strokeW = 1.8;
+    } else if (d === 2) {
+      fill = '#fff';
+      stroke = '#eeece7';
+    } else {
+      fill = '#fbfaf8';
+      stroke = '#f0ede8';
+      strokeW = 1;
+    }
+
+    const cls = ['node'];
+    cls.push('lv' + d);
+    const labelCls = 'node-label lv' + d + (hasKids ? '' : ' leaf');
+
+    html += `<g class="${cls.join(' ')}" data-id="${n._id}" transform="translate(${x},${y})">`;
+    html += `<rect class="node-box" width="${n._w}" height="${n._h}" rx="${d === 0 ? 11 : 9}"
+              fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" />`;
+
+    // 折叠标记
+    if (hasKids && d >= 1) {
+      html += `<text class="node-toggle" x="${n._w - 9}" y="${n._h / 2}" text-anchor="end">${isCollapsed ? '▸' : '▾'}</text>`;
+    }
+
+    // 星标（重点功能）
+    let textX = BOX_PAD_X;
+    if (n.star) {
+      html += `<text class="badge" x="${textX}" y="${n._h / 2}" fill="${COLORS[n._color] || '#ff5a36'}">★</text>`;
+      textX += 13;
+    }
+
+    const labelFill = d === 0 ? '#fff' : null;
+    html += `<text class="${labelCls}" x="${textX}" y="${n._h / 2}"
+              ${labelFill ? `fill="${labelFill}"` : ''}>${escapeXml(n.label)}</text>`;
+
+    // tabBadge
+    if (n.badge) {
+      const bw = textWidth(n.badge, 10) + 12;
+      const bx = n._w - bw - 8;
+      html += `<rect x="${bx}" y="${n._h / 2 - 8}" width="${bw}" height="16" rx="8"
+                fill="${n.badge === 'tab' ? '#ff5a36' : '#eeece7'}" />`;
+      html += `<text class="badge" x="${bx + bw / 2}" y="${n._h / 2}" text-anchor="middle"
+                fill="${n.badge === 'tab' ? '#fff' : '#4a443f'}">${n.badge === 'tab' ? 'tabBar' : n.badge}</text>`;
+    }
+
+    html += '</g>';
+  }
+
+  svg.innerHTML = html;
+
+  // 事件
+  svg.querySelectorAll('.node').forEach((g) => {
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = g.getAttribute('data-id');
+      const item = layout.find((l) => l.node._id === id);
+      if (!item) return;
+      const n = item.node;
+      if (n._children.length) {
+        if (collapsed.has(id)) collapsed.delete(id);
+        else collapsed.add(id);
+        render();
+      } else {
+        showAside(n);
+      }
+    });
+  });
+}
+
+function escapeXml(s) {
+  return String(s).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+}
+
+/* ============================================================================
+ * 缩放与平移
+ * ==========================================================================*/
+
+let scale = 1, tx = 0, ty = 0;
+let dragging = false, sx = 0, sy = 0;
+
+function applyTransform() {
+  svg.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+}
+
+function fitView() {
+  const w = Number(svg.getAttribute('width'));
+  const h = Number(svg.getAttribute('height'));
+  const vw = stage.clientWidth;
+  const vh = stage.clientHeight;
+  scale = Math.min(vw / (w + 60), vh / (h + 60), 1.35);
+  tx = 20;
+  ty = Math.max(0, (vh - h * scale) / 2);
+  applyTransform();
+}
+
+stage.addEventListener('mousedown', (e) => {
+  dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
+  stage.classList.add('grabbing');
+});
+window.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  tx = e.clientX - sx; ty = e.clientY - sy; applyTransform();
+});
+window.addEventListener('mouseup', () => { dragging = false; stage.classList.remove('grabbing'); });
+
+stage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const rect = stage.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const ns = Math.max(0.2, Math.min(3, scale * factor));
+  tx = mx - (mx - tx) * (ns / scale);
+  ty = my - (my - ty) * (ns / scale);
+  scale = ns;
+  applyTransform();
+}, { passive: false });
+
+/* ============================================================================
+ * 工具栏
+ * ==========================================================================*/
+
+function expandAll() { collapsed.clear(); render(); fitView(); }
+
+function collapseAll() {
+  collapsed.clear();
+  (function walk(n) {
+    // 展开根与一级，其余收起来 —— 保证一眼能看到整体骨架
+    if (n._depth >= 1 && n._children.length) collapsed.add(n._id);
+    n._children.forEach(walk);
+  })(TREE);
+  render(); fitView();
+}
+
+/* ============================================================================
+ * 详情抽屉
+ * ==========================================================================*/
+
+function showAside(n) {
+  document.getElementById('asideTitle').textContent = n.label;
+  let html = '';
+  if (n.note) html += `<p>${escapeXml(n.note)}</p>`;
+  if (n.route) html += `<h4>页面路径</h4><p><code>${escapeXml(n.route)}</code></p>`;
+  if (n.flow) html += `<h4>跳转</h4><p>${escapeXml(n.flow)}</p>`;
+  if (n.tags) html += `<h4>技术栈</h4><div class="tag-row">${n.tags.map((t) => `<span class="tag">${escapeXml(t)}</span>`).join('')}</div>`;
+  if (n._children && n._children.length) {
+    html += `<h4>包含（${n._children.length}）</h4><ul>${n._children.map((c) => `<li>${escapeXml(c.label)}</li>`).join('')}</ul>`;
+  }
+  if (!html) html = '<p>这是一个叶子节点，没有更多说明。</p>';
+  document.getElementById('asideBody').innerHTML = html;
+  document.getElementById('aside').classList.add('open');
+}
+
+function closeAside() { document.getElementById('aside').classList.remove('open'); }
+
+/* ============================================================================
+ * 启动
+ * ==========================================================================*/
+
+render();
+fitView();
+window.addEventListener('resize', fitView);
+</script>
+</body>
+</html>

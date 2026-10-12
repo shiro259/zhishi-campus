@@ -1,0 +1,16 @@
+/**
+ * uni-app 内置样式变量入口
+ *
+ * 本项目把所有视觉变量集中在 common/tokens.scss，并在这里引入。
+ * uni-app 会自动把本文件注入每个 <style lang="scss">，因此页面里可以直接用
+ * $brand / $ink / $radius-card 等变量，无需再手动 import。
+ *
+ * ⚠️ 这里**必须**用 `@/` 别名，不能写成 `./common/tokens.scss`。
+ * 原因：本文件的内容会被注入到每个组件的样式块里，相对路径 `./common/...`
+ * 会以**那个组件**所在目录为基准解析 —— 例如注入到 pages/review/review.vue 时
+ * 就变成 pages/review/common/tokens.scss，直接报
+ *   [plugin:vite:css] Can't find stylesheet to import.
+ * 换成 `@/`（项目根别名）后，从任何位置解析都正确。
+ */
+
+@import '@/common/tokens.scss';

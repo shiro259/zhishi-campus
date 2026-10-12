@@ -1,0 +1,185 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/recommend/recommend",
+      "style": {
+        "navigationBarTitleText": "AI 推荐",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/dish-list/dish-list",
+      "style": {
+        "navigationBarTitleText": "食堂菜单",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/dish/dish",
+      "style": {
+        "navigationBarTitleText": "菜品详情",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/favorites/favorites",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/group/group",
+      "style": {
+        "navigationBarTitleText": "多人拼饭",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/review/review",
+      "style": {
+        "navigationBarTitleText": "发表评价",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/user/user",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/index",
+      "style": {
+        "navigationBarTitleText": "管理后台",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/dashboard",
+      "style": {
+        "navigationBarTitleText": "数据看板",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/dishes",
+      "style": {
+        "navigationBarTitleText": "菜品管理",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/dish-edit",
+      "style": {
+        "navigationBarTitleText": "编辑菜品",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/reviews",
+      "style": {
+        "navigationBarTitleText": "评价审核",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/users",
+      "style": {
+        "navigationBarTitleText": "评价数据",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/admin/ai-config",
+      "style": {
+        "navigationBarTitleText": "AI 配置",
+        "backgroundColor": "#F7F6F3",
+        "backgroundTextStyle": "dark"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#B8B2AA",
+    "selectedColor": "#FF5A36",
+    "borderStyle": "white",
+    "backgroundColor": "#FFFFFF",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/recommend/recommend",
+        "iconPath": "static/tabbar/ai.png",
+        "selectedIconPath": "static/tabbar/ai-active.png",
+        "text": "AI 推荐"
+      },
+      {
+        "pagePath": "pages/dish-list/dish-list",
+        "iconPath": "static/tabbar/dish.png",
+        "selectedIconPath": "static/tabbar/dish-active.png",
+        "text": "菜单"
+      },
+      {
+        "pagePath": "pages/user/user",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/user-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "知食校园",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F7F6F3",
+    "backgroundColorTop": "#F7F6F3",
+    "backgroundColorBottom": "#F7F6F3"
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^DishImage$": "@/components/DishImage/DishImage.vue",
+      "^Icon$": "@/components/Icon/Icon.vue"
+    }
+  }
+}
