@@ -151,9 +151,10 @@
           <!-- 降级说明（云函数未部署 / 大模型不可用） -->
           <text class="bubble-notice" v-if="m.notice">{{ m.notice }}</text>
 
-          <!-- 加载中 -->
+          <!-- 加载中：大模型要 5~15 秒，等超过 4 秒就补一句说明，避免用户以为卡死 -->
           <view class="typing" v-if="m.loading">
             <text class="typing-dot" v-for="i in 3" :key="i" :style="{ animationDelay: i * 0.2 + 's' }" />
+            <text class="typing-hint">{{ waitHint }}</text>
           </view>
         </view>
       </view>
@@ -195,7 +196,7 @@
 
 <script setup>
 /**
- * AI 助手对话页（食遇校园）
+ * AI 助手对话页（知食校园）
  *
  * 定位：把「不知道吃啥」这件事交给 AI —— 说一句口味/预算/忌口，直接给出菜品。
  *
@@ -227,6 +228,35 @@ const todayPicks = ref([])
 const activePref = ref(null)
 /** 被用户否掉的菜品数量，用来提示条件已经收紧到什么程度 */
 const excludedCount = ref(0)
+
+/**
+ * 等待提示文案
+ * 大模型一轮要 5~15 秒，只转圈不说话会让人以为卡死，等久了补一句说明。
+ */
+const waitingSeconds = ref(0)
+let waitTimer = null
+
+const waitHint = computed(() => {
+  const s = waitingSeconds.value
+  if (s < 4) return ''
+  if (s < 12) return 'AI 正在按你的条件挑选…'
+  if (s < 25) return '还在生成，模型有点忙…'
+  return '等得有点久了，马上就好'
+})
+
+function startWaitTimer() {
+  stopWaitTimer()
+  waitingSeconds.value = 0
+  waitTimer = setInterval(() => { waitingSeconds.value += 1 }, 1000)
+}
+
+function stopWaitTimer() {
+  if (waitTimer) {
+    clearInterval(waitTimer)
+    waitTimer = null
+  }
+  waitingSeconds.value = 0
+}
 
 const quickQuestions = [
   '想吃辣的，10块以内',
@@ -311,6 +341,7 @@ async function send() {
   // 添加 AI 加载消息
   messages.value.push({ role: 'bot', content: '', loading: true, dishes: [] })
   sending.value = true
+  startWaitTimer()
   scrollToBottom()
 
   try {
@@ -325,6 +356,7 @@ async function send() {
       loading: false
     }
   } finally {
+    stopWaitTimer()
     sending.value = false
     scrollToBottom()
   }
@@ -383,6 +415,7 @@ async function chooseOption(msgIndex, option) {
   messages.value.push({ role: 'user', content: option.label })
   messages.value.push({ role: 'bot', content: '', loading: true, dishes: [] })
   sending.value = true
+  startWaitTimer()
   scrollToBottom()
 
   try {
@@ -414,6 +447,7 @@ async function chooseOption(msgIndex, option) {
       loading: false
     }
   } finally {
+    stopWaitTimer()
     sending.value = false
     scrollToBottom()
   }
@@ -432,6 +466,7 @@ async function rejectDish(msgIndex, rank, name) {
   messages.value.push({ role: 'user', content: `不要「${name}」，换一个` })
   messages.value.push({ role: 'bot', content: '', loading: true, dishes: [] })
   sending.value = true
+  startWaitTimer()
   scrollToBottom()
 
   try {
@@ -460,6 +495,7 @@ async function rejectDish(msgIndex, rank, name) {
       loading: false
     }
   } finally {
+    stopWaitTimer()
     sending.value = false
     scrollToBottom()
   }
@@ -842,6 +878,7 @@ onShow(() => {
 
 .typing {
   display: flex;
+  align-items: center;
   padding: 8rpx 0;
 }
 
@@ -852,6 +889,13 @@ onShow(() => {
   background: $brand-line;
   margin: 0 6rpx;
   animation: blink 1.2s infinite;
+}
+
+/* 等待超过 4 秒才出现的说明，安抚"是不是卡死了"的疑虑 */
+.typing-hint {
+  margin-left: 14rpx;
+  font-size: $fs-tag;
+  color: $gray6;
 }
 
 @keyframes blink {

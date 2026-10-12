@@ -1,7 +1,7 @@
 <script>
   export default {
     onLaunch: function() {
-      console.log('食遇校园 App Launch')
+      console.log('知食校园 App Launch')
     },
     onShow: function() {
       console.log('App Show')

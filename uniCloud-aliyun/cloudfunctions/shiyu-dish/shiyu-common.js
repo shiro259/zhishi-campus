@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 食遇校园 - 云函数公共库
+ * 知食校园 - 云函数公共库
  *
  * 供 shiyu-config / shiyu-review / shiyu-dish / shiyu-seed 复用，避免各处重复实现
  * 「管理口令校验」与「AI 配置读取」这两段安全相关的逻辑。

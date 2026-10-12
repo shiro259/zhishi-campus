@@ -1,5 +1,5 @@
 /**
- * 统一 API 适配层（食遇校园）
+ * 统一 API 适配层（知食校园）
  *
  * 架构：uniCloud 云函数为主链路，本地数据为兜底链路。
  *
@@ -752,7 +752,10 @@ export const recommendApi = {
     }
 
     try {
-      const data = await callCloud(CLOUD_FN.agent, payload)
+      // 超时必须给够：这一轮要等大模型出结果（云函数侧模型超时是 30s）。
+      // 早先沿用默认的 8s，导致模型还在推理时客户端就已判超时并降级成单轮推荐 ——
+      // 表现出来就是"多轮会话用不了"。
+      const data = await callCloud(CLOUD_FN.agent, payload, { timeout: 35000 })
       if (data && data.sessionId) {
         agentSessionId = data.sessionId
         saveAgentSessionId(agentSessionId)
@@ -769,6 +772,8 @@ export const recommendApi = {
       mergedPref.extra = text
 
       const local = localRecommend(mergedPref, LOCAL_DISHES)
+      // 区分"超时"与"其它失败"：超时多半是模型太慢，提示要让人看懂发生了什么
+      const isTimeout = /超时|timeout/i.test(e.message || '')
       return {
         engine: 'local',
         type: 'recommend',
@@ -776,9 +781,11 @@ export const recommendApi = {
         recommendations: local.recommendations,
         summary: local.summary,
         prefSnapshot: mergedPref,
-        notice: e.message
-          ? `多轮对话不可用（${e.message}），本次为单轮推荐；云端部署 shiyu-agent 后可连续改需求`
-          : '本次为单轮推荐'
+        notice: isTimeout
+          ? '这次 AI 回答太慢了（已等 35 秒），先给你一批规则推荐。多轮记忆这次没能保存，重试通常就好'
+          : (e.message
+            ? `多轮对话不可用（${e.message}），本次为单轮推荐；云端部署 shiyu-agent 后可连续改需求`
+            : '本次为单轮推荐')
       }
     }
   },
@@ -826,7 +833,10 @@ export const recommendApi = {
     try {
       // 注意：云函数会自带 engine 字段（ai 表示真·大模型，local 表示云端规则兜底），
       // 因此这里直接透传，不能再用 fromCloud 覆盖成 'cloud'
-      result = await callCloud(CLOUD_FN.recommend, { pref: merged, text: text || '' })
+      //
+      // 超时必须给够：shiyu-recommend 内部也要调大模型（其模型超时为 30s）。
+      // 沿用默认 8s 会在模型还没返回时就判超时、白白降级成本地规则。
+      result = await callCloud(CLOUD_FN.recommend, { pref: merged, text: text || '' }, { timeout: 35000 })
       result = { engine: 'cloud', ...(result || {}) }
 
       // 云端菜品库若未正确初始化（只有一两条手工测试菜），大模型也只能在脏数据里挑，
@@ -1284,9 +1294,9 @@ export const configApi = {
     return fromCloud(await callCloud(CLOUD_FN.config, payload))
   },
 
-  /** 测试大模型连通性 */
+  /** 测试大模型连通性（要真的发一次模型请求，超时给足 25s） */
   async test() {
-    return fromCloud(await callCloud(CLOUD_FN.config, { action: 'test' }))
+    return fromCloud(await callCloud(CLOUD_FN.config, { action: 'test' }, { timeout: 25000 }))
   },
 
   /** 菜品库初始化：sync 补齐缺失 / reset 全量重置 */

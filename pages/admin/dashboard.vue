@@ -4,7 +4,7 @@
     <view class="hero">
       <view class="hero-main">
         <text class="hero-title">数据看板</text>
-        <text class="hero-sub">食遇校园 · 菜品与推荐运营概览</text>
+        <text class="hero-sub">知食校园 · 菜品与推荐运营概览</text>
       </view>
       <view class="hero-refresh" @click="load">
         <Icon name="refresh" :size="26" />

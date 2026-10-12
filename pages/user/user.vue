@@ -256,7 +256,7 @@
 
 <script setup>
 /**
- * 我的（食遇校园）
+ * 我的（知食校园）
  *
  * 说明：登录态以本地资料（userApi.getProfile()，储存键 userInfo）为准，
  *      全程只调用 @/api/index.js，不直接触碰 uniCloud。
@@ -581,9 +581,9 @@ function clearHistory() {
 
 function showAbout() {
   uni.showModal({
-    title: '关于食遇校园',
+    title: '关于知食校园',
     content:
-      '食遇校园 · AI 智能食堂推荐\n\n用 AI 解决「每天不知道吃啥」：说口味、报预算、填忌口，即可得到食堂菜品推荐。\n\n技术说明：uni-app (Vue3) + uniCloud 云函数 + 大模型 API；云端不可用时自动降级为本地规则引擎，离线也能完整演示。',
+      '知食校园 · AI 智能食堂推荐\n\n用 AI 解决「每天不知道吃啥」：说口味、报预算、填忌口，即可得到食堂菜品推荐。\n\n技术说明：uni-app (Vue3) + uniCloud 云函数 + 大模型 API；云端不可用时自动降级为本地规则引擎，离线也能完整演示。',
     showCancel: false,
     confirmText: '知道了'
   })

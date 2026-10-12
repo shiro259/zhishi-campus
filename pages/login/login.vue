@@ -3,7 +3,7 @@
     <!-- ================= 品牌区 ================= -->
     <view class="brand">
       <view class="brand-logo">🍜</view>
-      <text class="brand-name">食遇校园</text>
+      <text class="brand-name">知食校园</text>
       <text class="brand-slogan">AI 智能食堂，治好你的选择困难</text>
     </view>
 
@@ -98,7 +98,7 @@
         :disabled="submitting"
         @click="submit"
       >
-        {{ submitting ? '正在进入…' : '进入食遇校园' }}
+        {{ submitting ? '正在进入…' : '进入知食校园' }}
       </button>
 
       <!--

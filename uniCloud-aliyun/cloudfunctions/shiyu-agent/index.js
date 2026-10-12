@@ -3,7 +3,7 @@
  * ============================================================================
  * 云函数：shiyu-agent —— 可对话的推荐 Agent（多轮修正 + 矛盾澄清）
  * ----------------------------------------------------------------------------
- * 项目：食遇校园 - AI智能食堂推荐
+ * 项目：知食校园 - AI智能食堂推荐
  *
  * 与 shiyu-recommend 的区别：
  *   shiyu-recommend 是**单轮**推荐：给一份偏好，返回一批菜，不满意只能"换一批"重抽。
@@ -46,11 +46,14 @@ const SESSION_TTL = 2 * 60 * 60 * 1000;
 // 候选召回上限
 const MAX_CANDIDATES = 120;
 // 塞进 Prompt 的候选上限（控制 token）
-const MAX_PROMPT_CANDIDATES = 50;
+// 实测模型耗时几乎全由输入/输出 token 决定：50 条太长，30 条足够挑出 5 道
+const MAX_PROMPT_CANDIDATES = 30;
 // 返回给前端的推荐条数
 const MAX_RECOMMEND = 5;
 // 大模型超时
 const AI_TIMEOUT = 30000;
+// 模型输出上限：只要 3~5 条推荐 + 一句话，900 足够，输出越短返回越快
+const AI_MAX_TOKENS = 900;
 
 // 候选菜品字段
 const CANDIDATE_FIELD = {
@@ -617,72 +620,74 @@ async function loadAiConfig() {
   }
 }
 
+/**
+ * 构建 Prompt
+ *
+ * 耗时优化（这是整条链路里唯一的大头，实测模型占用 10~20s、其余开销仅 3ms）：
+ *   1. 候选压到 MAX_PROMPT_CANDIDATES 条，且只带模型判断必需的四五个字段，
+ *      window 这类它用不到的信息不传 —— 输入 token 少了，首字延迟明显下降；
+ *   2. 对话上下文只保留最近 2 轮、每轮 40 字 —— 历史太长会显著拖慢推理；
+ *   3. 输出只要 3~5 条、理由 20 字以内 —— 输出 token 是逐字生成的，砍输出最省时间。
+ */
 function buildPrompt(pref, candidates, history) {
-  const taste = (pref.taste && pref.taste.length) ? pref.taste.join('、') : '无特殊偏好';
+  const taste = (pref.taste && pref.taste.length) ? pref.taste.join('、') : '无';
   const allergy = (pref.allergies && pref.allergies.length) ? pref.allergies.join('、') : '无';
-  const budget = pref.budget ? pref.budget + ' 元以内' : '不限';
-  const meal = pref.meal_type || '未指定';
+  const budget = pref.budget ? pref.budget + '元内' : '不限';
 
-  const histText = (history || []).slice(-4).map(function (h) {
-    return (h.role === 'user' ? '用户：' : '助手：') + String(h.text || '').slice(0, 60);
+  const histText = (history || []).slice(-2).map(function (h) {
+    return (h.role === 'user' ? '用户：' : '助手：') + String(h.text || '').slice(0, 40);
   }).join('\n');
 
+  // 只给判断所需的字段
   const list = candidates.map(function (d) {
-    return {
-      id: d._id,
-      name: d.name,
-      price: toNumber(d.price),
-      canteen: d.canteen,
-      window: d.window,
-      tags: d.tags || [],
-      rating: toNumber(d.rating)
-    };
+    return [d._id, d.name, toNumber(d.price), (d.tags || []).join('/'), toNumber(d.rating)];
   });
 
   return [
-    '你是「食遇校园」食堂推荐助手。用户可能在连续对话中逐步调整需求，请只做最后一批推荐。',
+    '食堂推荐。按需求从候选里挑 3~5 道。',
+    '需求：口味' + taste + '；忌口' + allergy + '；预算' + budget
+      + (pref.meal_type ? '；' + pref.meal_type : '')
+      + '；刚说「' + String(pref.extra || '').slice(0, 30) + '」',
+    histText ? '上文：\n' + histText : '',
     '',
-    '【当前累计需求】',
-    '- 用餐时段：' + meal,
-    '- 口味偏好：' + taste,
-    '- 忌口（绝对不能出现）：' + allergy,
-    '- 预算：' + budget,
-    '- 用户刚刚说：' + (pref.extra || '（无）'),
-    histText ? '\n【对话上下文】\n' + histText : '',
-    '',
-    '【候选菜品】',
+    '候选[id,菜名,价,标签,评分]：',
     JSON.stringify(list),
     '',
-    '【输出要求】只输出 JSON，不要任何多余文字：',
-    '{"recommendations":[{"dish_id":"候选里的id","reason":"25字以内、说清为什么适合他这次的要求","match_score":90}],"summary":"一句话说明这批推荐怎么满足了他的调整"}',
-    '',
-    '硬性约束：',
-    '1. dish_id 必须来自候选列表，不得编造；',
-    '2. 严禁推荐含忌口食材的菜品；',
-    '3. 价格不得超过预算；',
-    '4. reason 要体现"针对他这次的修正"（例如他刚说了太油，就要说明这道不清淡油腻）。'
-  ].join('\n');
+    '只输出JSON：{"recommendations":[{"dish_id":"id","reason":"20字内","match_score":90}],"summary":"20字内"}',
+    '约束：dish_id 必须来自候选；不得含忌口食材；不得超预算；reason 要说清为何适合他这次的调整。'
+  ].filter(Boolean).join('\n');
 }
 
+/**
+ * 调用大模型
+ *
+ * 用 response_format 强制 JSON 输出可以让模型更快进入结构化生成，
+ * 但并非所有 OpenAI 兼容服务都支持；不支持时会直接 400。
+ * 因此这里做成两段：先带 response_format 试一次，失败再去掉它重试一次，
+ * 避免为了一个可选优化把整个推荐打挂。
+ */
 async function callLLM(prompt, cfg) {
   if (!cfg.apiKey) return null;
+
   const url = String(cfg.baseUrl).replace(/\/+$/, '') + '/chat/completions';
-  try {
+  const baseData = {
+    model: cfg.model,
+    messages: [{ role: 'user', content: prompt }],
+    // 降到 0.3：推荐是"按约束挑选"，不需要发散；低温度还能让输出更短更快
+    temperature: 0.3,
+    max_tokens: AI_MAX_TOKENS
+  };
+
+  async function once(withJsonFormat) {
+    const data = Object.assign({}, baseData);
+    if (withJsonFormat) data.response_format = { type: 'json_object' };
     const res = await uniCloud.httpclient.request(url, {
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + cfg.apiKey,
         'Content-Type': 'application/json'
       },
-      data: {
-        model: cfg.model,
-        messages: [
-          { role: 'system', content: '你是校园食堂美食推荐专家，回答务实、简短。' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 1200
-      },
+      data: data,
       dataType: 'json',
       timeout: AI_TIMEOUT
     });
@@ -690,9 +695,19 @@ async function callLLM(prompt, cfg) {
     return (body && body.choices && body.choices[0] && body.choices[0].message)
       ? body.choices[0].message.content
       : null;
+  }
+
+  try {
+    return await once(true);
   } catch (e) {
-    console.error('[shiyu-agent] 大模型调用失败:', e && (e.message || e));
-    return null;
+    console.warn('[shiyu-agent] 带 response_format 调用失败，去掉该参数重试:',
+      e && (e.message || e));
+    try {
+      return await once(false);
+    } catch (e2) {
+      console.error('[shiyu-agent] 大模型调用失败:', e2 && (e2.message || e2));
+      return null;
+    }
   }
 }
 

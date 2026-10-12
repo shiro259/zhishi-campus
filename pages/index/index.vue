@@ -15,7 +15,7 @@
           <text class="banner-hello-text">{{ greeting }}，{{ nickname }} 👋</text>
         </view>
 
-        <text class="banner-title">食遇校园</text>
+        <text class="banner-title">知食校园</text>
         <text class="banner-sub">AI 食堂推荐</text>
         <text class="banner-slogan">不知道吃什么？让 AI 帮你决定</text>
       </view>
@@ -202,7 +202,7 @@
 
 <script setup>
 /**
- * 首页（食遇校园）
+ * 首页（知食校园）
  *
  * 定位：解决「每天不知道吃啥」的第一入口，主推 AI 智能推荐。
  *

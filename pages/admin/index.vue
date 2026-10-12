@@ -4,7 +4,7 @@
     <view class="welcome-card">
       <view class="welcome-left">
         <text class="welcome-title">你好，{{ nickname }}</text>
-        <text class="welcome-sub">食遇校园 · 运营管理后台</text>
+        <text class="welcome-sub">知食校园 · 运营管理后台</text>
       </view>
       <text class="welcome-icon">🛠️</text>
     </view>
