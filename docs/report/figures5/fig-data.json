@@ -1,0 +1,143 @@
+{
+  "generatedBy": "zhishi-campus/lab5/build-fig5-data.mjs",
+  "note": "全部字段来自真实运行落盘：实验5/logs/compare.jsonl（Q1/Q5/Q7 的 rag 组）、实验5/logs/rag-demo.jsonl（D1）、rag/index/chunks.json（stats）",
+  "sources": {
+    "compare": "实验5/logs/compare.jsonl",
+    "ragDemo": "实验5/logs/rag-demo.jsonl",
+    "index": "zhishi-campus/rag/index/chunks.json"
+  },
+  "kb": {
+    "docCount": 7,
+    "chunkCount": 50,
+    "totalChars": 4799,
+    "avgChunkChars": 96
+  },
+  "q1": {
+    "question": "宫保鸡丁里有没有花生？",
+    "answer": "有。宫保鸡丁的公示配料含鸡丁、花生、黄瓜，花生为公示配料 [S2]。对花生过敏的同学应避开，或向窗口确认同锅加工情况 [S2]；本窗口同一口锅可能先后加工含花生的菜品，可能含有花生，建议向窗口确认 [S4]。",
+    "citations": [
+      {
+        "id": "S2",
+        "quote": "配料：鸡丁、花生、黄瓜"
+      },
+      {
+        "id": "S2",
+        "quote": "明确含有花生"
+      },
+      {
+        "id": "S4",
+        "quote": "同一口锅可能先后加工含花生、虾蟹或鸡蛋的菜品"
+      }
+    ],
+    "sources": [
+      {
+        "sourceId": "S1",
+        "chunkId": "kb-07-c03",
+        "title": "选餐常见问题（FAQ）",
+        "section": "我该怎么判断一道菜会不会让我过敏",
+        "finalScore": 0.763
+      },
+      {
+        "sourceId": "S2",
+        "chunkId": "kb-03-c02",
+        "title": "3 号窗口菜品卡片（12 道，含配料与估算热量区间）",
+        "section": "宫保鸡丁",
+        "finalScore": 0.432
+      },
+      {
+        "sourceId": "S3",
+        "chunkId": "kb-04-c01",
+        "title": "忌口与过敏的提示规范",
+        "section": "提示怎么写",
+        "finalScore": 0.311
+      },
+      {
+        "sourceId": "S4",
+        "chunkId": "kb-01-c03",
+        "title": "一食堂一楼 3 号窗口公示与供餐规则",
+        "section": "过敏原与忌口",
+        "finalScore": 0.227
+      }
+    ],
+    "latencyMs": 1787,
+    "tokens": {
+      "promptTokens": 779,
+      "completionTokens": 155,
+      "totalTokens": 934
+    },
+    "insufficient": false
+  },
+  "q5": {
+    "question": "三食堂二楼这周新上了什么菜？",
+    "answer": "资料里没有三食堂二楼本周新菜的信息，无法回答。",
+    "followup": "你想了解新菜的哪方面信息，比如配料、营养搭配还是忌口提示？",
+    "insufficient": true,
+    "latencyMs": 1037,
+    "tokens": {
+      "promptTokens": 759,
+      "completionTokens": 54,
+      "totalTokens": 813
+    }
+  },
+  "q7": {
+    "question": "我对花生过敏，能不能吃抗过敏药来预防？",
+    "answer": "这个问题超出选餐助手的处理范围（用药与药物），我无法给用药或就医建议。",
+    "followup": "你可以问我某道菜的配料、热量估算、预算搭配或忌口提示；健康与用药问题建议咨询校医院或医生。",
+    "insufficient": true,
+    "latencyMs": 0,
+    "tokens": {
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "totalTokens": 0
+    }
+  },
+  "d1": {
+    "question": "宫保鸡丁里有没有花生？",
+    "ranked": [
+      {
+        "sourceId": "S1",
+        "chunkId": "kb-07-c03",
+        "title": "选餐常见问题（FAQ）",
+        "section": "我该怎么判断一道菜会不会让我过敏",
+        "bm25": 41.955,
+        "cosine": 0.408,
+        "finalScore": 0.763,
+        "relevant": true
+      },
+      {
+        "sourceId": "S2",
+        "chunkId": "kb-03-c02",
+        "title": "3 号窗口菜品卡片（12 道，含配料与估算热量区间）",
+        "section": "宫保鸡丁",
+        "bm25": 23.807,
+        "cosine": 0.23,
+        "finalScore": 0.432,
+        "relevant": true
+      },
+      {
+        "sourceId": "S3",
+        "chunkId": "kb-04-c01",
+        "title": "忌口与过敏的提示规范",
+        "section": "提示怎么写",
+        "bm25": 15.763,
+        "cosine": 0.214,
+        "finalScore": 0.311,
+        "relevant": true
+      },
+      {
+        "sourceId": "S4",
+        "chunkId": "kb-01-c03",
+        "title": "一食堂一楼 3 号窗口公示与供餐规则",
+        "section": "过敏原与忌口",
+        "bm25": 9.395,
+        "cosine": 0.233,
+        "finalScore": 0.227,
+        "relevant": true
+      }
+    ],
+    "contextChars": 655,
+    "context": "[S1] 选餐常见问题（FAQ） · 我该怎么判断一道菜会不会让我过敏（199 字）\n不要指望线上资料给你一个\"能吃\"或\"不能吃\"的结论。正确做法是三步：第一，看菜品卡片的公示配料，例如宫保鸡丁的公示配料里有花生，麻辣香锅里有虾和蟹棒；第二，看包装上\"可能含有\"的提示，理解它只代表\"配料里出现了这种食材\"，不代表同锅加工的情况；第三，走到窗口，直接问工作人员这道菜里有没有你忌口的食材、锅具是否与其",
+    "topK": 4,
+    "threshold": 0.2
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "zhishi-campus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "知食校园——校园食堂智能选餐助手（实验4 可运行版本 + 实验5 RAG 问答）",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test test/",
+    "rag:index": "node rag/build-index.mjs",
+    "rag:ask": "node lab5/cli.mjs",
+    "lab5:test": "node lab5/test-pipeline.mjs",
+    "lab5:kb": "node lab5/run-kb-check.mjs",
+    "lab5:llm": "node lab5/run-llm-basics.mjs",
+    "lab5:prompt-ab": "node lab5/run-prompt-ab.mjs",
+    "lab5:demo": "node lab5/run-rag-demo.mjs",
+    "lab5:compare": "node lab5/run-compare.mjs"
+  }
+}

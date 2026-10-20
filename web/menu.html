@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>知食校园 · 维护当日菜单</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="back" href="/">‹ 返回</a>
+      <h1>维护当日菜单</h1>
+    </header>
+    <main>
+      <section class="card">
+        <h2>① 选择窗口并粘贴公示文本</h2>
+        <p class="hint">只粘贴食堂公示的菜单文本，程序按行解析，不猜菜名、不补配料。</p>
+        <label>食堂 / 窗口</label>
+        <select id="windowSel"></select>
+        <label>公示菜单文本</label>
+        <textarea id="rawText" placeholder="例：香煎鸡胸饭(鸡胸肉、米饭) 12元"></textarea>
+        <div class="row wrap" style="margin-top:10px">
+          <button id="sampleBtn" class="small">载入样例文本</button>
+          <button id="parseBtn" class="small primary">解析为菜品列表</button>
+          <button id="clearBtn" class="small ghost">清空重填</button>
+        </div>
+      </section>
+
+      <section class="card" id="resultCard"></section>
+
+      <section class="card" id="savedCard"></section>
+    </main>
+  </div>
+  <script type="module" src="/js/p2.js"></script>
+</body>
+</html>

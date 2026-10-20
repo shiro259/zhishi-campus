@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>知食校园 · 问一问（RAG）</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="back" href="/">‹ 返回</a>
+      <h1>问一问 · 选餐助手</h1>
+    </header>
+    <main>
+      <section class="card">
+        <h2>问一个问题</h2>
+        <textarea id="question" rows="3" placeholder="例如：宫保鸡丁里有没有花生？"></textarea>
+        <div class="row wrap" id="examples"></div>
+        <div class="row">
+          <button id="askBtn" class="block">问一问</button>
+        </div>
+        <p class="hint" id="modeHint">回答只依据知识库资料，并在末尾标注资料编号；资料不足时会直接说明。</p>
+      </section>
+
+      <section class="card" id="answerCard" hidden></section>
+      <section class="card" id="sourcesCard" hidden></section>
+    </main>
+  </div>
+  <script type="module" src="/js/p6.js"></script>
+</body>
+</html>

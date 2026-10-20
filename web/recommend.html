@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>知食校园 · 选餐推荐</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="back" href="/">‹ 返回</a>
+      <h1>今天推荐这 3 道</h1>
+      <span class="sub" id="engineTag"></span>
+    </header>
+    <main>
+      <div class="statusbar" id="statusBar">正在准备推荐…</div>
+      <section id="recList" class="list"></section>
+      <div class="row">
+        <button class="block" id="moreBtn">换一批（重新推荐）</button>
+      </div>
+      <p class="hint">推荐只在你维护的候选菜单里挑选；涉及忌口与过敏时，软件只提示"可能含有"，请向窗口确认。</p>
+    </main>
+  </div>
+  <script type="module" src="/js/p3.js"></script>
+</body>
+</html>

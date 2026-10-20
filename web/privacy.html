@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>知食校园 · 隐私与数据</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="back" href="/">‹ 返回</a>
+      <h1>隐私与我的数据</h1>
+    </header>
+    <main>
+      <section class="card">
+        <h2>软件采集什么</h2>
+        <table>
+          <tbody>
+            <tr><td>口味标签、健康目标、预算区间</td><td>仅存本机</td></tr>
+            <tr><td>忌口 / 过敏清单</td><td>仅存本机，不上传</td></tr>
+            <tr><td>就餐记录与反馈</td><td>仅存本机</td></tr>
+            <tr><td>学号、姓名、手机号</td><td>不采集</td></tr>
+            <tr><td>位置、照片原图、人脸</td><td>不采集</td></tr>
+          </tbody>
+        </table>
+        <p class="hint">上传给模型服务的只有候选菜品（菜名、价格、配料）与画像标签摘要，不含忌口清单内容。</p>
+      </section>
+
+      <section class="card" id="dataCard"></section>
+      <section class="card" id="actionCard"></section>
+    </main>
+  </div>
+  <script type="module" src="/js/p5.js"></script>
+</body>
+</html>
